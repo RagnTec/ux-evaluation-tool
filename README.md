@@ -2,7 +2,7 @@
 
 > **Design-Image Level Human Factors and UX Risk Evaluation Tool**
 
-**English** | [简体中文](./README.zh-CN.md)
+**English** | [Simplified Chinese](./README.zh-CN.md)
 
 [![Status: v0.1 Open Source Preview](https://img.shields.io/badge/status-v0.1_Open_Source_Preview-blue.svg)](#current-status)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
@@ -91,9 +91,9 @@ The evaluation engine **automatically matches applicable rules** based on availa
 
 ### Actual Evaluation Coverage (Neutral Coverage Semantics)
 The summary report clearly partitions evaluated dimensions:
-* **Covered Dimensions (已覆盖评估维度)**: Depicted with neutral bullet `●` (e.g., `● Color Contrast`, `● Representative Character Visual Angle`, `● Physical Touch Target`, `● Screenshot Font Size Estimate`).
+* **Covered Dimensions**: Depicted with neutral bullet `●` (e.g., `● Color Contrast`, `● Representative Character Visual Angle`, `● Physical Touch Target`, `● Screenshot Font Size Estimate`).
   > **Note**: Coverage is a neutral indicator that valid evaluation or estimation took place; **coverage does not imply PASS**. Pass/fail/risk verdicts are strictly indicated on individual findings.
-* **Pending Additional Info (待补充后可评估)**: Depicted with neutral amber circle `○` (e.g., `○ Android Platform Touch Target`, `○ Android Design Font Size`), explaining what information is needed to unlock full platform rules. (Hidden if no pending items exist).
+* **Pending Additional Info**: Depicted with neutral amber circle `○` (e.g., `○ Android Platform Touch Target`, `○ Android Design Font Size`), explaining what information is needed to unlock full platform rules. (Hidden if no pending items exist).
 
 ### Dynamic Active References
 References displayed in the report are dynamically aggregated from rule traces that actively participated in evaluation:
