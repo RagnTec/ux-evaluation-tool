@@ -175,11 +175,17 @@ import {
 } from "./utils/capabilityResolver";
 import {
   EvaluationParametersModal,
-  type EvaluationParametersData
+  type EvaluationParametersData,
+  type EvaluationParametersSection
 } from "./components/EvaluationParametersModal";
-import { EVALUATION_TIER_LABELS, EVALUATION_CHECK_LABELS, getEvaluationTierLabel } from "./types/capability";
+import { EVALUATION_TIER_LABELS, EVALUATION_CHECK_LABELS, getEvaluationTierLabel, type EvaluationTier } from "./types/capability";
 import { ReportPreviewModal } from "./components/ReportPreviewModal";
-import type { ReportSummaryData, ReportFilter, ReportElementItem } from "./types/report";
+import type {
+  ReportSummaryData,
+  ReportFilter,
+  ReportElementItem,
+  ReportEvaluationContext
+} from "./types/report";
 import {
   generateNumberedEvidenceScreenshotDataUrl,
   generateElementThumbnailDataUrl,
@@ -241,9 +247,7 @@ export function App() {
 
   // Phase 3H: Parameters Modal State & Lower Tiers Drawer
   const [isParamsModalOpen, setIsParamsModalOpen] = useState<boolean>(false);
-  const [paramsModalInitialSection, setParamsModalInitialSection] = useState<
-    "screenshot" | "screen" | "user_scenario" | "references" | "design" | "environment"
-  >("screenshot");
+  const [paramsModalInitialSection, setParamsModalInitialSection] = useState<EvaluationParametersSection>("screenshot");
   const [isLowerTiersExpanded, setIsLowerTiersExpanded] = useState<boolean>(false);
 
   // Phase 3: Local Project Library State
@@ -302,7 +306,7 @@ export function App() {
   const [touchEditSnapshot, setTouchEditSnapshot] = useState<TouchEditSnapshot | null>(null);
   const [touchInteraction, setTouchInteraction] = useState<TouchCanvasInteraction>({ type: "idle" });
   const [touchToastMessage, setTouchToastMessage] = useState<string | null>(null);
-  const touchToastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const touchToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showTouchToast = (msg: string) => {
     if (touchToastTimeoutRef.current) {
@@ -407,7 +411,61 @@ export function App() {
     globalAllowEstimation
   ]);
 
-  const mmPerPixel = physicalCalibrationDiagnostic.mmPerPixel;
+  const mmPerPixel = useMemo<number | undefined>(() => {
+    if (!imageNaturalDimensions || imageNaturalDimensions.width <= 0 || imageNaturalDimensions.height <= 0) {
+      return undefined;
+    }
+    const fullImagePhysical = calculatePhysicalGeometry(
+      { x: 0, y: 0, width: 1, height: 1 },
+      imageNaturalDimensions.width,
+      imageNaturalDimensions.height,
+      resolvedDisplayParams.displaySize,
+      resolvedDisplayParams.resolution,
+      calibrationMode,
+      globalAllowEstimation,
+      croppedScaleMode,
+      originalFullImageWidthInput ? parseInt(originalFullImageWidthInput, 10) : undefined
+    );
+
+    if (
+      !fullImagePhysical.is_calibrated ||
+      typeof fullImagePhysical.width_mm !== "number" ||
+      typeof fullImagePhysical.height_mm !== "number" ||
+      fullImagePhysical.width_mm <= 0 ||
+      fullImagePhysical.height_mm <= 0 ||
+      fullImagePhysical.width_px <= 0 ||
+      fullImagePhysical.height_px <= 0
+    ) {
+      return undefined;
+    }
+
+    const mmPerPixelX = fullImagePhysical.width_mm / fullImagePhysical.width_px;
+    const mmPerPixelY = fullImagePhysical.height_mm / fullImagePhysical.height_px;
+
+    if (
+      !Number.isFinite(mmPerPixelX) ||
+      !Number.isFinite(mmPerPixelY) ||
+      mmPerPixelX <= 0 ||
+      mmPerPixelY <= 0
+    ) {
+      return undefined;
+    }
+
+    const maxRatio = Math.max(mmPerPixelX, mmPerPixelY);
+    const relativeDiff = Math.abs(mmPerPixelX - mmPerPixelY) / maxRatio;
+    if (relativeDiff > 0.02) {
+      return undefined;
+    }
+
+    return mmPerPixelX;
+  }, [
+    imageNaturalDimensions,
+    resolvedDisplayParams,
+    calibrationMode,
+    globalAllowEstimation,
+    croppedScaleMode,
+    originalFullImageWidthInput
+  ]);
 
   const activeAnnotation = annotations.find((item) => item.annotation_id === activeAnnotationId) || annotations[0];
   const activeIndex = activeAnnotation ? annotations.findIndex((item) => item.annotation_id === activeAnnotation.annotation_id) : -1;
@@ -438,8 +496,11 @@ export function App() {
     if (isTouchEditMode && touchEditSnapshot) {
       return {
         ...activeElement,
-        touch_bounds: touchEditSnapshot.draftNormalizedBounds,
-        touch_source_provenance: touchEditSnapshot.sourceProvenance
+        touch_bounds: touchEditSnapshot.draft_touch_bounds,
+        touch_bounds_source: touchEditSnapshot.draft_touch_bounds_source,
+        touch_bounds_pixel: touchEditSnapshot.draft_touch_bounds_pixel,
+        touch_bounds_reference_clipped: touchEditSnapshot.draft_touch_bounds_reference_clipped,
+        touch_bounds_reference_warning: touchEditSnapshot.draft_touch_bounds_reference_warning
       };
     }
     return activeElement;
@@ -447,11 +508,14 @@ export function App() {
 
   const effectiveInspectorElement = useMemo<DesignElement | null>(() => {
     if (!inspectorElement) return null;
-    if (isTouchEditMode && touchEditSnapshot && inspectorElement.element_id === touchEditSnapshot.elementId) {
+    if (isTouchEditMode && touchEditSnapshot && inspectorElement.element_id === touchEditSnapshot.element_id) {
       return {
         ...inspectorElement,
-        touch_bounds: touchEditSnapshot.draftNormalizedBounds,
-        touch_source_provenance: touchEditSnapshot.sourceProvenance
+        touch_bounds: touchEditSnapshot.draft_touch_bounds,
+        touch_bounds_source: touchEditSnapshot.draft_touch_bounds_source,
+        touch_bounds_pixel: touchEditSnapshot.draft_touch_bounds_pixel,
+        touch_bounds_reference_clipped: touchEditSnapshot.draft_touch_bounds_reference_clipped,
+        touch_bounds_reference_warning: touchEditSnapshot.draft_touch_bounds_reference_warning
       };
     }
     return inspectorElement;
@@ -591,7 +655,7 @@ export function App() {
   }, [currentCapabilityContext, activeElement]);
 
   const handleOpenParamsModal = (
-    section: EvaluationParametersSection = "evaluation_context"
+    section: EvaluationParametersSection = "screenshot"
   ) => {
     if (isTouchEditMode) {
       handleCancelTouchEdit();
@@ -655,27 +719,27 @@ export function App() {
 
   const handleSaveParameters = (data: EvaluationParametersData) => {
     setCalibrationMode(data.calibrationMode);
-    setCroppedScaleMode(data.croppedScaleMode);
+    setCroppedScaleMode(data.croppedScaleMode ?? "unknown_or_resized");
     setOriginalFullImageWidthInput(data.originalImageReferenceWidth ? String(data.originalImageReferenceWidth) : "");
-    setGlobalAllowEstimation(data.allowEstimation || false);
+    setGlobalAllowEstimation(data.allowEstimation ?? false);
     setForm((prev) => ({
       ...prev,
-      deviceProfile: data.deviceProfile,
+      deviceProfile: data.deviceProfile ?? prev.deviceProfile,
       displaySize: data.displaySize,
       resolution: data.resolution,
       distance: data.viewingDistance,
-      scenario: data.scenario,
-      scenarioDomain: data.scenarioDomain,
-      scenarioDomainUserOverridden: data.scenarioDomainUserOverridden,
-      userGroups: data.userGroups,
-      ruleSets: data.ruleSets,
-      dimensions: data.dimensions
+      scenario: data.scenario ?? prev.scenario,
+      scenarioDomain: data.scenarioDomain ?? prev.scenarioDomain ?? "unknown",
+      scenarioDomainUserOverridden: data.scenarioDomainUserOverridden ?? prev.scenarioDomainUserOverridden,
+      userGroups: data.userGroups ?? prev.userGroups,
+      ruleSets: data.ruleSets ?? prev.ruleSets,
+      dimensions: data.dimensions ?? prev.dimensions
     }));
-    setCustomDisplaySize(data.customDisplaySize);
-    setCustomResolution(data.customResolution);
-    setDesignInfoStatus(data.designInfoStatus);
-    setContextEnvironment(data.contextEnvironment || "");
-    setContextOperationState(data.contextOperationState || "");
+    setCustomDisplaySize(data.customDisplaySize ?? customDisplaySize);
+    setCustomResolution(data.customResolution ?? customResolution);
+    setDesignInfoStatus(data.designInfoStatus ?? designInfoStatus ?? "unknown");
+    setContextEnvironment(data.contextEnvironment ?? contextEnvironment);
+    setContextOperationState(data.contextOperationState ?? contextOperationState);
     setMappingPlatform(data.targetPlatform);
     setMappingUnit(data.logicalUnit);
     setLogicalRefWidthInput(data.logicalReferenceWidth ? String(data.logicalReferenceWidth) : "");
@@ -684,7 +748,9 @@ export function App() {
     if (data.designInfoStatus === "unknown") {
       setLogicalMapping(undefined);
     } else if (data.designInfoStatus === "partial") {
-      const devLogicalW = getDeviceLogicalWidth(data.deviceProfile, data.targetPlatform);
+      const devLogicalW = data.deviceProfile
+        ? getDeviceLogicalWidth(data.deviceProfile, data.targetPlatform)
+        : undefined;
       if (devLogicalW && devLogicalW > 0) {
         const refImgW = data.imageReferenceWidth || imageNaturalDimensions?.width || devLogicalW;
         const mapping = createLogicalUnitMapping(
@@ -833,14 +899,20 @@ export function App() {
           } catch {}
         }
 
+        const itemHighestTier: EvaluationTier = presentation.highestTier || "screenshot_fact";
+        const itemHighestTierLabel = presentation.highestTierLabel || getEvaluationTierLabel(itemHighestTier, locale);
+        const attentionReasons = (presentation.actionableFindings || []).map((f) => f.summaryText || f.metricLabel);
+
         return {
           index: index + 1,
           elementId: el.element_id,
           label: el.label || (locale === "en" ? `Element #${index + 1}` : `元素 #${index + 1}`),
           elementType: el.element_type,
           elementTypeLabel: presentation.elementTypeLabel,
-          highestTier: presentation.highestTier,
-          highestTierLabel: presentation.highestTierLabel,
+          interactionType: presentation.interactionType,
+          isInteractive: presentation.isInteractive,
+          highestTier: itemHighestTier,
+          highestTierLabel: itemHighestTierLabel,
           conclusion: presentation.conclusion,
           conclusionState: presentation.conclusionState,
           conclusionStateLabel: presentation.conclusionStateLabel,
@@ -848,11 +920,12 @@ export function App() {
           perspectives: presentation.unifiedExplanation?.perspectives,
           ruleTraces: [...mainTraces, ...moreMeasurements],
           needsAttention: (presentation.actionableFindings || []).some((f) => f.severity === "below_threshold" || f.severity === "below_recommended"),
+          attentionReasons,
           visualDimensionsDisplay: presentation.visualPxDisplay,
           characterHeightDisplay: presentation.characterHeightVisualAngleDisplay,
-          characterHeightDesignDisplay: presentation.textDesignHeightDisplay,
-          characterHeightPhysicalDisplay: presentation.textPhysicalHeightDisplay,
-          characterHeightVisualAngleDisplay: presentation.textVisualAngleDisplay,
+          characterHeightDesignDisplay: presentation.characterHeightDesignDisplay || presentation.textDesignHeightDisplay,
+          characterHeightPhysicalDisplay: presentation.characterHeightPhysicalDisplay || presentation.textPhysicalHeightDisplay,
+          characterHeightVisualAngleDisplay: presentation.characterHeightVisualAngleDisplay || presentation.textVisualAngleDisplay,
           estimatedTextSizeDisplay: presentation.estimatedTextSizeDisplay,
           estimatedTextSizeSourceLabel: presentation.estimatedTextSizeSourceLabel,
           touchDimensionsDisplay: presentation.touchDimensionsDisplay,
@@ -985,7 +1058,7 @@ export function App() {
         const charVaTrace = el.element_type === "text"
           ? buildCharacterVisualAngleTrace(el, scenarioScope, undefined, form.distance, locale)
           : null;
-        const graphicVaTrace = el.element_type === "icon" || el.text_visual_measurement_target === "symbol"
+        const graphicVaTrace = el.element_type === "icon"
           ? buildGraphicalVisualAngleTrace(el, scenarioScope, undefined, form.distance, locale)
           : null;
 
@@ -1131,6 +1204,16 @@ export function App() {
       const attentionCount = allItems.filter((i) => i.needsAttention).length;
       const filteredElements = filter === "attention_only" ? allItems.filter((i) => i.needsAttention) : allItems;
 
+      const targetPlatformLabel = mappingPlatform === "ios"
+        ? "Apple iOS (pt)"
+        : mappingPlatform === "android"
+        ? "Google Android (dp)"
+        : mappingPlatform === "web"
+        ? (locale === "en" ? "Web Standard (CSS px)" : "Web 标准 (CSS px)")
+        : mappingPlatform === "custom"
+        ? (locale === "en" ? "Custom Unit" : "自定义单位")
+        : (locale === "en" ? "Unknown Platform" : "未知平台");
+
       return {
         title: locale === "en" ? "UX Evaluation Tool — Visual Evidence Report" : "UX Evaluation Tool 评估报告",
         generatedAt: new Date().toLocaleString(locale === "en" ? "en-US" : "zh-CN"),
@@ -1141,6 +1224,17 @@ export function App() {
         totalElementsCount,
         attentionCount,
         filter,
+        filterCount: filteredElements.length,
+        designInfoStatus,
+        targetPlatform: mappingPlatform,
+        targetPlatformLabel,
+        logicalUnit: logicalMapping?.unit,
+        displaySize: form.displaySize,
+        resolution: form.resolution,
+        viewingDistance: form.distance,
+        scenario: form.scenario,
+        userGroups: form.userGroups,
+        ruleSets: form.ruleSets,
         dimensions: form.dimensions,
         contextEnvironment,
         contextOperationState,
@@ -1672,7 +1766,7 @@ export function App() {
       schema_version: WORKSPACE_SCHEMA_VERSION,
       updated_at: new Date().toISOString(),
       device_profile: form.deviceProfile,
-      displaySize: form.displaySize,
+      display_size: form.displaySize,
       resolution: form.resolution,
       viewing_distance: form.distance,
       scenario: form.scenario,
@@ -1680,11 +1774,11 @@ export function App() {
       rule_sets: form.ruleSets,
       dimensions: form.dimensions,
       calibration_mode: calibrationMode,
-      cropped_scale_mode: "unknown_or_resized",
-      original_image_reference_width: undefined,
+      cropped_scale_mode: croppedScaleMode,
+      original_image_reference_width: originalFullImageWidthInput ? parseInt(originalFullImageWidthInput, 10) : undefined,
       allow_estimation: globalAllowEstimation,
       logical_mapping: logicalMapping,
-      design_info_status: undefined,
+      design_info_status: designInfoStatus,
       context_environment: contextEnvironment,
       context_operation_state: contextOperationState,
       evaluation_mode: evaluationMode,
@@ -1699,8 +1793,11 @@ export function App() {
   }, [
     form,
     calibrationMode,
+    croppedScaleMode,
+    originalFullImageWidthInput,
     globalAllowEstimation,
     logicalMapping,
+    designInfoStatus,
     contextEnvironment,
     contextOperationState,
     evaluationMode,
@@ -3786,7 +3883,7 @@ export function App() {
           const charVaTrace = targetElement.element_type === "text"
             ? buildCharacterVisualAngleTrace(targetElement, inspectorScenarioScope, undefined, form.distance, locale)
             : null;
-          const graphicVaTrace = targetElement.element_type === "icon" || targetElement.text_visual_measurement_target === "symbol"
+          const graphicVaTrace = targetElement.element_type === "icon"
             ? buildGraphicalVisualAngleTrace(targetElement, inspectorScenarioScope, undefined, form.distance, locale)
             : null;
 

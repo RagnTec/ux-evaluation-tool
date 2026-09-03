@@ -6,8 +6,14 @@ import type {
   TextSizeSource,
   EstimatedTextSizeSource,
   TextVisualMeasurementTarget,
-  TargetPlatform
+  TargetPlatform,
+  TextLayout,
+  TextRole,
+  TextWeightCategory,
+  TextSizeUnit
 } from "../types/designElement";
+import type { EvaluationTier } from "../types/capability";
+import type { ScenarioDomain } from "../types/context";
 import type { DerivedEvaluationContext } from "./interactionGeometry";
 import { formatAreaShare } from "./presentationPolicy";
 import {
@@ -107,6 +113,12 @@ export interface ElementPresentationModel {
   textVisualAngleDisplay?: string;
   textVisualShareDisplay?: string;
   relativeTypographyDisplay?: string;
+  textLayout?: TextLayout;
+  textRole?: TextRole;
+  textWeightCategory?: TextWeightCategory;
+  textSizeValue?: number;
+  textSizeUnit?: TextSizeUnit;
+  textSizeSource?: TextSizeSource;
   textSizeStatus: "user_confirmed" | "needs_confirmation" | "missing_logical_basis" | "not_text";
   textSizeDisplay: string;
   textSizeGuidance?: string;
@@ -118,6 +130,11 @@ export interface ElementPresentationModel {
   estimatedTextSizeDisplay: string;
   estimatedTextSizeGuidance?: string;
   estimatedTextSizeAdvisory?: string;
+  characterHeightPx?: number;
+  characterHeightDisplay?: string;
+  characterHeightDesignDisplay?: string;
+  characterHeightPhysicalMm?: number;
+  characterHeightPhysicalDisplay?: string;
   characterHeightVisualAngleArcmin?: number;
   characterHeightVisualAngleDisplay?: string;
   characterHeightSourceLabel?: string;
@@ -155,7 +172,7 @@ export interface ElementPresentationModel {
   whyItMatters: string;
   unifiedExplanation: UnifiedResultExplanation;
   // Evaluation tier (derived from highest active rule layer)
-  highestTier?: string;
+  highestTier?: EvaluationTier;
   highestTierLabel?: string;
 }
 
@@ -169,15 +186,13 @@ export function deriveScenarioScope(
   _contextOperationState?: string,
   scenarioDomain?: string
 ): ScenarioScope {
-  let normalizedDomain: "automotive" | "mobile" | "web" | "generic_display" | "unknown" = "unknown";
+  let normalizedDomain: ScenarioDomain = "unknown";
   if (scenarioDomain === "automotive") {
     normalizedDomain = "automotive";
   } else if (scenarioDomain === "mobile") {
     normalizedDomain = "mobile";
   } else if (scenarioDomain === "web" || scenarioDomain === "desktop") {
-    normalizedDomain = "web";
-  } else if (scenarioDomain === "generic_display") {
-    normalizedDomain = "generic_display";
+    normalizedDomain = "desktop";
   } else {
     normalizedDomain = "unknown";
   }
@@ -281,7 +296,7 @@ export function buildElementPresentationModel(
   }
 
   // 4. Visual Angle (Human Factors)
-  const visualAngle = computeElementVisualAngle(element, imageWidth, imageHeight, context.displaySize, context.resolution, context.viewingDistance);
+  const visualAngle = computeElementVisualAngle(element, context.viewingDistance);
   const isVisualAngleAvailable = !!(visualAngle && visualAngle.vertical_arcmin !== undefined);
   let visualAngleDisplay: string | undefined = undefined;
   let visualAngleDetailDisplay: string | undefined = undefined;
@@ -292,7 +307,7 @@ export function buildElementPresentationModel(
   let visualAngleTextSemanticNote: string | undefined = undefined;
 
   if (isVisualAngleAvailable && visualAngle) {
-    const isEstimated = visualAngle.quality === "estimated";
+    const isEstimated = element.physical_geometry?.calibration_quality === "estimated" || element.physical_geometry?.calibration_quality === "relative_only";
     const prefix = isEstimated ? (locale === "en" ? "≈ " : "约 ") : "";
     const hDeg = formatNumericValue(visualAngle.horizontal_deg, 2);
     const vDeg = formatNumericValue(visualAngle.vertical_deg, 2);

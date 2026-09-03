@@ -6,6 +6,7 @@ import type {
   CalibrationMode,
   LogicalUnitMapping
 } from "../types/designElement";
+import type { ScenarioDomain } from "../types/context";
 import type {
   CroppedScaleMode,
   DesignInfoStatus,
@@ -23,7 +24,15 @@ import { parseResolution, resolveDisplayParameters } from "../utils/calibration"
 import { useI18n } from "../i18n";
 import type { Locale } from "../i18n/types";
 
-export type ScenarioDomainOption = "automotive" | "mobile" | "web" | "generic_display" | "unknown";
+export type ScenarioDomainOption = ScenarioDomain;
+
+export type EvaluationParametersSection =
+  | "screenshot"
+  | "screen"
+  | "user_scenario"
+  | "references"
+  | "design"
+  | "environment";
 
 export interface EvaluationParametersData {
   calibrationMode: CalibrationMode;
@@ -45,7 +54,7 @@ export interface EvaluationParametersData {
   userGroups?: string[];
   ruleSets?: string[];
   dimensions?: string[];
-  scenarioDomain?: ScenarioDomainOption;
+  scenarioDomain?: ScenarioDomain;
   scenarioDomainUserOverridden?: boolean;
   contextEnvironment?: string;
   contextOperationState?: string;
@@ -61,7 +70,7 @@ interface EvaluationParametersModalProps {
   imageWidth?: number;
   imageHeight?: number;
   imageName?: string;
-  initialSection?: "screenshot" | "screen" | "user_scenario" | "references" | "design" | "environment";
+  initialSection?: EvaluationParametersSection;
   onTriggerImageUpload?: () => void;
 }
 
@@ -106,12 +115,11 @@ export const getHardwareQuickPairs = (locale: Locale = "zh-CN") => [
   { id: "vehicle_center", label: locale === "en" ? "Automotive Central · 12.3 inch (1920 × 720)" : "车机中控 · 12.3 英寸 (1920 × 720)", displaySize: "12.3 inch", resolution: "1920x720" }
 ];
 
-export const getScenarioDomainOptions = (locale: Locale = "zh-CN") => [
-  { value: "unknown" as const, label: locale === "en" ? "Unspecified / General Screen" : "未指定 / 通用屏幕 (常规评估)" },
-  { value: "mobile" as const, label: locale === "en" ? "Mobile Devices (iOS / Android Apps)" : "移动设备 (手机 / 平板 App)" },
-  { value: "automotive" as const, label: locale === "en" ? "Automotive HMI (Center Console / Cluster)" : "车载 HMI (中控屏 / 仪表 / 驾驶环境)" },
-  { value: "web" as const, label: locale === "en" ? "Web & Desktop (PC Browser / Dashboard)" : "Web 网页 / 桌面端 (桌面浏览器 / 运营后台)" },
-  { value: "generic_display" as const, label: locale === "en" ? "Smart Displays (Control Panel / TV / Kiosk)" : "智能通用大屏 (中控面板 / 电视 / 展厅大屏)" }
+export const getScenarioDomainOptions = (locale: Locale = "zh-CN"): Array<{ value: ScenarioDomain; label: string }> => [
+  { value: "unknown", label: locale === "en" ? "Unspecified / General Screen" : "未指定 / 通用屏幕 (常规评估)" },
+  { value: "mobile", label: locale === "en" ? "Mobile Devices (iOS / Android Apps)" : "移动设备 (手机 / 平板 App)" },
+  { value: "automotive", label: locale === "en" ? "Automotive HMI (Center Console / Cluster)" : "车载 HMI (中控屏 / 仪表 / 驾驶环境)" },
+  { value: "desktop", label: locale === "en" ? "Web & Desktop (PC Browser / Dashboard)" : "Web 网页 / 桌面端 (桌面浏览器 / 运营后台)" }
 ];
 
 export const EvaluationParametersModal: React.FC<EvaluationParametersModalProps> = ({
@@ -186,7 +194,9 @@ export const EvaluationParametersModal: React.FC<EvaluationParametersModalProps>
     if (draft.designInfoStatus === "unknown") return null;
 
     if (draft.designInfoStatus === "partial") {
-      const devLogicalW = getDeviceLogicalWidth(draft.deviceProfile, draft.targetPlatform);
+      const devLogicalW = draft.deviceProfile
+        ? getDeviceLogicalWidth(draft.deviceProfile, draft.targetPlatform)
+        : undefined;
       if (!devLogicalW || devLogicalW <= 0) return null;
       const refImgW = draft.imageReferenceWidth || imageWidth || devLogicalW;
       return createLogicalUnitMapping(
@@ -247,8 +257,8 @@ export const EvaluationParametersModal: React.FC<EvaluationParametersModalProps>
     const rawDisp = resolveDisplayParameters(
       draft.displaySize,
       draft.resolution,
-      draft.customDisplaySize,
-      draft.customResolution
+      draft.customDisplaySize ?? "",
+      draft.customResolution ?? ""
     );
 
     const capContext: CapabilityContext = {
@@ -295,7 +305,7 @@ export const EvaluationParametersModal: React.FC<EvaluationParametersModalProps>
   const deriveDomainFromDevice = (pairId: string): ScenarioDomainOption => {
     if (pairId.startsWith("mobile_") || pairId === "tablet_11") return "mobile";
     if (pairId === "vehicle_center") return "automotive";
-    if (pairId.startsWith("laptop_") || pairId.startsWith("monitor_")) return "web";
+    if (pairId.startsWith("laptop_") || pairId.startsWith("monitor_")) return "desktop";
     return "unknown";
   };
 

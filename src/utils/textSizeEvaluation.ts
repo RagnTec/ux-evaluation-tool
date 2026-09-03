@@ -190,6 +190,23 @@ export function computeRelativeTypographyMetrics(
   };
 }
 
+function getTextRoleFallbackLabel(role?: TextRole): string {
+  switch (role) {
+    case "heading":
+      return "标题";
+    case "caption":
+      return "说明/注脚";
+    case "label":
+      return "标签/表单";
+    case "other":
+      return "其他非正文文字";
+    case "body":
+      return "正文";
+    default:
+      return "非正文文字";
+  }
+}
+
 /**
  * Evaluates text size against platform design guidelines and references.
  * Strictly preserves source distinctions (estimated_from_visual_bounds vs. user_confirmed).
@@ -251,7 +268,7 @@ export function evaluateTextSize(
 
   if (platform === "ios") {
     const isFallbackRole = role !== "body";
-    const roleLabel = role === "heading" ? "标题" : role === "caption" ? "说明/注脚" : role === "label" ? "标签/表单" : role === "helper" ? "辅助说明" : role === "menu" ? "菜单文字" : role === "annotation" ? "注释文字" : "非正文文字";
+    const roleLabel = getTextRoleFallbackLabel(role);
     const ruleRef = isFallbackRole
       ? "Apple Human Interface Guidelines - Typography (暂借用正文参考)"
       : "Apple Human Interface Guidelines - Typography";
@@ -327,7 +344,7 @@ export function evaluateTextSize(
 
   if (platform === "android") {
     const isFallbackRole = role !== "body";
-    const roleLabel = role === "heading" ? "标题" : role === "caption" ? "说明/注脚" : role === "label" ? "标签/表单" : role === "helper" ? "辅助说明" : role === "menu" ? "菜单文字" : role === "annotation" ? "注释文字" : "非正文文字";
+    const roleLabel = getTextRoleFallbackLabel(role);
     const ruleRef = isFallbackRole
       ? "Android Accessibility - Text size (暂借用正文参考)"
       : "Android Accessibility - Text size";

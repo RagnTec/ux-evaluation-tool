@@ -89,6 +89,8 @@ export interface Annotation {
   custom_rule_source?: string;
 }
 
+import type { ScenarioDomain } from "./context";
+
 export interface AnalysisInput {
   deviceProfile: string;
   deviceType: string;
@@ -97,7 +99,7 @@ export interface AnalysisInput {
   distance: string;
   userGroups: string[];
   scenario: string;
-  scenarioDomain?: "mobile" | "desktop" | "automotive" | "unknown";
+  scenarioDomain?: ScenarioDomain;
   scenarioDomainUserOverridden?: boolean;
   ruleSets: string[];
   dimensions: string[];

@@ -110,7 +110,9 @@ export const userGroupOptions = ['通用用户', '东亚用户', '欧美用户',
 export const ruleSetOptions = ['WCAG 2.2', 'Apple HIG', 'Android Accessibility', 'Human Factors', 'Automotive HMI'];
 export const dimensionOptions = ['触控目标', '目标间距 / 误触风险', '色彩对比', '文字可读性', '信息层级', '认知负荷'];
 
-export type ScenarioDomainOption = "mobile" | "desktop" | "automotive" | "unknown";
+import type { ScenarioDomain } from "../types/context";
+
+export type ScenarioDomainOption = ScenarioDomain;
 
 export const SCENARIO_DOMAIN_OPTIONS: { value: ScenarioDomainOption; label: string }[] = [
   { value: "mobile", label: "移动设备" },

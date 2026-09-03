@@ -1478,14 +1478,12 @@ export function buildGraphicalVisualAngleTrace(
   viewingDistanceInput?: string | number,
   locale: "en" | "zh-CN" = "zh-CN"
 ): RuleComparisonTrace | null {
-  if (element.element_type !== "icon" && element.text_visual_measurement_target !== "symbol") {
+  if (element.element_type !== "icon") {
     return null;
   }
 
-  // Guard: require explicit symbol/graphical feature measurement target
-  const isExplicitGraphicTarget =
-    element.text_visual_measurement_target === "symbol" ||
-    Boolean(element.character_height_px && element.element_type === "icon");
+  // Guard: require explicit graphical feature measurement target
+  const isExplicitGraphicTarget = Boolean(element.character_height_px && element.element_type === "icon");
 
   if (!isExplicitGraphicTarget) {
     return null;

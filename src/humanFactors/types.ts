@@ -161,11 +161,13 @@ export type MeasurementTarget =
   | "touch_bounds"
   | "unknown";
 
+import type { ScenarioDomain } from "../types/context";
+
 /**
  * Lightweight scenario context scope.
  */
 export interface ScenarioScope {
-  domain?: "automotive" | "mobile" | "web" | "generic_display" | "unknown";
+  domain?: ScenarioDomain;
   observer_role?: "driver" | "front_passenger" | "rear_passenger" | "unspecified";
   operation_state?: "driving" | "stationary" | "parked" | "unspecified";
   criticality?: ScenarioCriticality;

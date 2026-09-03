@@ -882,11 +882,9 @@ export function getUnifiedResultExplanation(ctx: ExplanationContext): UnifiedRes
     }
   }
 
-  // Graphical / Symbol Visual Angle Fallback
-  if (element.element_type === "icon" || element.text_visual_measurement_target === "symbol") {
-    const isExplicitGraphicTarget =
-      element.text_visual_measurement_target === "symbol" ||
-      Boolean(element.character_height_px && element.element_type === "icon");
+  // Graphical / Icon Visual Angle Fallback
+  if (element.element_type === "icon") {
+    const isExplicitGraphicTarget = Boolean(element.character_height_px && element.element_type === "icon");
 
     if (isExplicitGraphicTarget && viewingDistance) {
       const distMm = typeof viewingDistance === "number"
