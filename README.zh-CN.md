@@ -8,6 +8,12 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Architecture: Local First](https://img.shields.io/badge/architecture-Local_First-green.svg)](#隐私与数据安全)
 
+### 在线体验
+
+**[直接在浏览器中体验 UX Evaluation Tool →](https://ragntec.github.io/ux-evaluation-tool/)**
+
+公开 Demo 可直接在浏览器中运行，无需本地安装，适合快速体验当前 v0.1 的评估流程。
+
 UX Evaluation Tool 是一个开源、本地优先（Local-first）的 Web 评估工具，专为 UX 研究员、人因工程（Human Factors）专家、交互设计师及前端工程团队设计。它能够在设计图和界面截图阶段，针对多层人因工程基准、物理显示与交互测量、平台规范及无障碍标准，对视觉交互方案进行结构化风险评估与决策支持。
 
 ---

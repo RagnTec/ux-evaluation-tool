@@ -8,6 +8,12 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Architecture: Local First](https://img.shields.io/badge/architecture-Local_First-green.svg)](#privacy--security)
 
+### Live Demo
+
+**[Try UX Evaluation Tool in your browser →](https://ragntec.github.io/ux-evaluation-tool/)**
+
+The public demo runs directly in the browser and is intended for exploring the current v0.1 evaluation workflow without installing the project locally.
+
 UX Evaluation Tool is an open-source, local-first web application designed for UX researchers, Human Factors practitioners, product designers, and engineering teams. It evaluates UI and product screen proposals at the design-image stage against multi-layer human factors, physical viewing and interaction measurements, platform guidelines, and accessibility standards.
 
 ---
