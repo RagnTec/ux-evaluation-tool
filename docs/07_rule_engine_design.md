@@ -1,99 +1,124 @@
-# 07 Rule Engine Design
+# 07 Rule Engine & Evaluation Architecture
 
-## Purpose
+**English** | [简体中文](./07_rule_engine_design.zh-CN.md)
 
-The first-stage product does not implement a full rule engine. This document defines the boundary and data model direction for the explainable rule layer so mock annotations and future rule outputs stay compatible.
+---
 
-## Core Principle
+## 1. Engine Philosophy & Deterministic Design
 
-Every issue should explain:
+The evaluation engine of **UX Evaluation Tool** executes a **deterministic, multi-layer, evidence-driven rule pipeline**.
 
-- What risk was found.
-- Where it appears on the design image.
-- Which rule layer or source supports the finding.
-- Whether the finding is a strict rule match, theory inference, heuristic risk, or custom rule.
-- How conflicts between hard constraints and custom rules are handled.
+Unlike heuristic AI models or subjective design scoring algorithms, the engine operates on mathematical derivations and formal standards citations. Every finding originates from user-verified spatial coordinates, sampled color pixel data, or calibrated physical display parameters, producing an inspectable trace record (`RuleComparisonTrace`).
 
-## Rule Layers
+---
 
-- `L1_HARD_CONSTRAINT`: WCAG 2.2, EN 301 549, Section 508.
-- `L2_PLATFORM_GUIDELINE`: Apple HIG, Material Design / Android Accessibility, Microsoft Fluent.
-- `L3_HUMAN_FACTORS`: Fitts's Law, Hick-Hyman Law, Signal Detection Theory, Gestalt, Cognitive Load Theory, NASA-TLX, ISO 9241.
-- `L4_DOMAIN_RULE`: Automotive HMI, ISO 15005, ISO 15007, appliance / IoT, public device, wearable rules.
-- `L5_CUSTOM_RULE`: enterprise guidelines, brand rules, project acceptance criteria, market-specific rules.
+## 2. Multi-Layer Rule Architecture & Runtime Scope
 
-## Annotation Fields
+```
+┌───────────────────────────────────────────────────────────┐
+│ L5: Custom Rules (Architecture-only extension layer)      │
+├───────────────────────────────────────────────────────────┤
+│ L4: Domain Rules (Automotive HMI, Desktop/Web, General)   │
+├───────────────────────────────────────────────────────────┤
+│ L3: Human Factors Models (Visual angles, 9mm touch, etc.) │
+├───────────────────────────────────────────────────────────┤
+│ L2: Platform Guidelines (Apple HIG, Android Material)     │
+├───────────────────────────────────────────────────────────┤
+│ L1: Hard Constraints (WCAG 2.2 Level AA, Touch overlap)   │
+└───────────────────────────────────────────────────────────┘
+```
 
-Future annotations should support:
+### Layer Status in Public v0.1:
+- **L1–L3**: Contain the currently exposed, fully operational evaluation paths.
+- **L4**: Provides domain-aware applicability and domain-specific rule support with scope-dependent activation.
+- **L5**: Remains an architectural extension layer (data structures defined, but authoring UI is not in public v0.1).
 
-- `issue_type`: normalized issue category.
-- `severity`: low / medium / high / critical.
-- `description`: human-readable issue explanation.
-- `evidence_level`: strength of evidence behind the finding.
-- `evidence`: structured evidence records.
-- `source_priority`: priority of the primary rule source.
-- `rule_id`: stable identifier for traceability.
-- `rule_layer`: L1-L5 layer.
-- `reasoning_type`: rule_match / theory_inference / heuristic_risk / custom_rule.
-- `recommendation`: suggested action.
-- `confidence`: 0-1 confidence value.
-- `status`: OPEN / ACKNOWLEDGED / FIXED / VERIFIED / CLOSED.
-- `custom_rule_source`: optional custom rule origin.
-- `conflict_status`: whether this finding conflicts with another rule or custom rule.
+---
 
-## Evidence Fields
+## 3. Critical Conceptual Distinctions & Boundaries
 
-- `evidence_id`: stable evidence identifier.
-- `source_name`: human-readable source name.
-- `source_type`: standard / platform guideline / theory / heuristic / domain rule / custom rule.
-- `rule_id`: traceable rule identifier.
-- `guideline_ref`: guideline or internal rule reference.
-- `summary`: short explanation of relevance.
-- `evidence_level`: standard / platform_guideline / theory / heuristic / custom.
-- `reasoning_type`: rule_match / theory_inference / heuristic_risk / custom_rule.
-- `priority`: numeric source priority.
-- `url`: optional reference URL.
-- `note`: optional reviewer or implementation note.
+To ensure rigorous evaluation and avoid false positives, the engine enforces five strict conceptual boundaries:
 
-## `reasoning_type`
+### 3.1 Target Platform ≠ Design Basis
+- **Target Platform** (e.g., `iOS`, `Android`, `Web`) declares the normative design ecosystem and governing platform rules.
+- **Design Basis** (e.g., `iPhone 15 Pro (393 pt)`, `Pixel 8 (412 dp)`, custom reference width) provides the numeric scale factor to convert raw rendered pixels to logical units (`pt`, `dp`, `CSS px`).
+- *Rule*: Selecting a platform without a confirmed design basis triggers a `needs_info` status for platform-specific rules (e.g., Apple 44 pt), while physical millimeter and contrast evaluations continue unaffected.
 
-- `rule_match`: the finding maps to an explicit rule or standard.
-- `theory_inference`: the finding is inferred from human factors or cognitive theory.
-- `heuristic_risk`: the finding comes from practical UX heuristics.
-- `custom_rule`: the finding comes from a user-defined rule.
+### 3.2 Scenario Domain ≠ Observer Role / Operation State
+- Selecting the **Automotive Domain** (`automotive`) establishes that the UI resides within an in-vehicle display environment.
+- It does **not** automatically imply that the observer is a driver, that the vehicle is in motion, or that the task is safety-critical.
+- *Rule*: Specialized automotive driver-state rules require applicable structured context. In the current Public release, general in-vehicle viewing geometry applies, and cockpit role/state inputs are not yet exposed in the UI.
 
-## `source_priority`
+### 3.3 Touch Targets Are Non-Transferable to Visual Angles
+- **Biomechanical Reality**: Physical touch interactions depend on direct finger contact and motor targeting accuracy (evaluated against the general handheld direct-touch reference of ≥ 9 mm).
+- *Rule*: Touch target rules (e.g., general handheld direct-touch reference of ≥ 9 mm or platform 48 dp bounds) **must never** be converted into visual angle equivalents (arcminutes). Visual angles apply exclusively to optical legibility and visual detail recognition.
 
-Recommended priority order:
+### 3.4 Measurement Target Compatibility
+- Evaluating typographic legibility against character-height references requires measuring a **representative single glyph** (`character_height_px` / `character_cap_height`).
+- *Rule*: If the spatial annotation covers a whole multi-line text container (`element_visual_bounds`), character visual angle rules are not applied as governing benchmarks, preventing container bounds from falsely inflating font legibility.
 
-1. L1 hard constraints.
-2. L4 safety or domain-critical rules.
-3. L2 platform rules.
-4. L3 human factors theory and UX heuristics.
-5. L5 custom rules.
+### 3.5 Registered References ≠ Universal Governing Mandates
+- Human Factors models (e.g., ≥ 16′ basic, ≥ 20′ recommended visual angle) represent empirical ergonomics references, not legal statutes.
+- Evaluated references are categorized into governing, recommended, optimal, secondary, adapted, conservative, or descriptive roles.
 
-Custom rules can be high priority for a project, but they cannot silently suppress L1 findings.
+---
 
-## `conflict_handling`
+## 4. Evaluation Flow & Rule Trace Pipeline
 
-When two rules conflict:
+```
+[ Spatial & Color Evidence ] ──► [ Capability & Precision Resolver ]
+                                              │
+                                              ▼
+[ Reference Envelope Resolver ] ◄── [ Hardware & Design Calibration ]
+               │
+               ▼
+   [ Comparison Formulation ] ──► [ Verdict & Trace Aggregation ]
+                                              │
+                                              ▼
+                                 [ ElementPresentationModel ]
+```
 
-- Preserve both findings if they represent different risk types.
-- Mark the lower-priority finding as conflicted if it recommends a different action.
-- Show the conflict status in the issue detail.
-- Prefer L1 hard constraints when compliance and custom rules disagree.
-- Prefer domain safety rules when scenario safety is involved.
-- Use `blocked_by_higher_priority_rule` when a custom or lower-priority recommendation cannot be applied.
-- Use `overridden` only when a higher-priority rule explicitly supersedes a lower-priority rule.
+### 4.1 Step 1: Evidence & Precision Tier Resolution
+For each `DesignElement`, the engine establishes the highest available precision tier:
+1. **Tier 1 (Screenshot Fact)**: Image pixel bounds, area ratios, sampled contrast.
+2. **Tier 2 (Hardware Assumed)**: Physical dimensions in millimeters (mm) via calibrated display specs.
+3. **Tier 3 (Design Mapped)**: Logical dimensions (`pt` / `dp` / `CSS px`) via design reference widths.
+4. **Tier 4 (Source Confirmed)**: Source-confirmed typography or explicit interactive touch bounds.
 
-## `custom_rule_override_policy`
+### 4.2 Step 2: Reference Envelope Resolution (`resolveReferenceEnvelope`)
+Candidate references are filtered against:
+- **Measurement Target**: Verifying target feature compatibility (e.g., `character_height` vs `element_visual_bounds`).
+- **Scenario Scope**: Checking observer role, operation state, and environment compatibility.
+- **Reference Role Assignment**: Designating governing minima vs recommended or conservative baselines.
 
-- Custom rules may add stricter thresholds.
-- Custom rules may add brand, project, or market-specific requirements.
-- Custom rules may downgrade internal priority for team workflow, but must not hide L1 hard constraint findings.
-- Custom rules must expose `custom_rule_source`.
-- Custom rules that conflict with L1 must produce a conflict status rather than silently replacing the L1 result.
+### 4.3 Step 3: Comparison Formulation (`ComparisonDetails`)
+Comparisons are structured into typed mathematical payloads:
+- `scalar_min`: Minimum threshold checks (e.g., Contrast ≥ 4.5:1, Physical touch ≥ 9.0 mm).
+- `scalar_max`: Maximum threshold checks.
+- `range`: Target range boundaries (e.g., optimal visual angle ranges).
+- `multi_axis`: Dual-axis evaluations (width and height axes with identified limiting dimension).
+- `conditional`: Multi-predicate evaluation structures.
+- `needs_info`: Identifies missing inputs required to unlock evaluation.
+- `measurement_only`: Reports quantitative measurements when no normative threshold applies.
 
-## MVP Boundary
+### 4.4 Step 4: Trace Verdict Assignment (`TraceVerdict`)
+Every rule check yields an explicit verdict:
+- `meets`: Fully satisfies the recommended reference.
+- `below_recommended`: Meets the basic threshold, but falls below recommended baseline.
+- `attention`: Below the basic or minimum threshold; requires design review.
+- `estimated_meets` / `estimated_below_recommended` / `estimated_attention`: Derived from heuristic or single-line typography estimations.
+- `measurement_only`: Pure measurement record without compliance verdict.
+- `needs_info`: Missing calibration or design basis inputs.
+- `not_applicable`: Rule does not apply to this element type or platform.
 
-The MVP may return hard-coded mock annotations using this structure. It should not implement a complex parser, real AI recognition, database-backed rule library, or server-side rule management in this phase.
+---
+
+## 5. Precedence & Conflict Boundaries
+
+1. **L1 Takes Precedence**: Hard accessibility constraints (WCAG 2.2 AA) and physical geometry conflicts (touch overlap) take absolute precedence. Platform conventions (L2) or future custom rules (L5) cannot silently override L1 findings.
+2. **Epistemic Labeling**: Traces explicitly carry their reasoning origin:
+   - `rule_match`: Audited platform or accessibility standard.
+   - `theory_inference`: Ergonomics mathematical derivation.
+   - `heuristic_risk`: Heuristic or estimated layout indicator.
+   - `domain_adapted`: Context-gated domain baseline.
+3. **Orthogonal Non-Blocking**: A missing input for one layer (e.g., missing logical scale for L2) produces a clear `needs_info` trace for that check, without blocking physical (L3) or contrast (L1) evaluations.
