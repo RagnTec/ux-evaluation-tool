@@ -212,15 +212,7 @@ Evaluation findings explicitly declare evidence credibility:
 
 ## Documentation
 
-Comprehensive design specifications and methodology references are available in the [`docs/`](docs/) directory:
-
-* [`docs/00_product_definition.md`](docs/00_product_definition.md) — Product scope, core audience, and differentiation.
-* [`docs/01_mvp_scope.md`](docs/01_mvp_scope.md) — Scope boundaries and acceptance criteria.
-* [`docs/02_evaluation_framework.md`](docs/02_evaluation_framework.md) — Theoretical framework and parameter modeling.
-* [`docs/03_annotation_model.md`](docs/03_annotation_model.md) — Annotation, evidence, and measurement schemas.
-* [`docs/07_rule_engine_design.md`](docs/07_rule_engine_design.md) — Rule layering, conflict handling, and priority hierarchy.
-* [`docs/08_explanation_layer_design.md`](docs/08_explanation_layer_design.md) — Explanation presentation and UI design.
-* [`docs/09_rule_reference_policy.md`](docs/09_rule_reference_policy.md) — Reference credibility and claim strength policy.
+For product scope, architecture, evaluation logic, rule governance, and research evidence, see the [Documentation Index](./docs/README.md).
 
 ---
 

@@ -210,17 +210,9 @@ npm run build
 
 ---
 
-## 架构与方法文档
+## 文档
 
-详细设计规范与人因方法文档见 [`docs/`](docs/) 目录：
-
-* [`docs/00_product_definition.md`](docs/00_product_definition.md) — 产品定位与核心受众
-* [`docs/01_mvp_scope.md`](docs/01_mvp_scope.md) — 范围边界与验收基准
-* [`docs/02_evaluation_framework.md`](docs/02_evaluation_framework.md) — 人因理论框架与参数建模
-* [`docs/03_annotation_model.md`](docs/03_annotation_model.md) — 标注、测量与证据模型
-* [`docs/07_rule_engine_design.md`](docs/07_rule_engine_design.md) — 规则分层与优先级调度
-* [`docs/08_explanation_layer_design.md`](docs/08_explanation_layer_design.md) — 可解释性呈现与结论表达
-* [`docs/09_rule_reference_policy.md`](docs/09_rule_reference_policy.md) — 证据可信度政策
+产品范围、技术架构、评估逻辑、规则治理与研究证据请参见 [文档导航目录](./docs/README.zh-CN.md)。
 
 ---
 
