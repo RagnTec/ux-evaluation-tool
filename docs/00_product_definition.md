@@ -1,61 +1,84 @@
-# 00 产品定义
+# 00 Product Definition
 
-## 产品名称
+**English** | [简体中文](./00_product_definition.zh-CN.md)
 
-UX Evaluation Tool（设计图级别的人因与 UX 风险评估工具）
+---
 
-## 产品定位
+## 1. Product Name & Summary
 
-本项目是面向产品、设计、用户研究和人因团队的本地化 H5 工具。用户上传 UI / 产品方案设计图后，系统结合设备类型、显示尺寸、分辨率、使用距离、目标用户人群和使用场景，从可访问性、平台规范、人因工程、人体测量、视觉识别、认知负荷与自定义规则等维度，对设计图进行风险评估，并在图上给出可解释的标注建议。
+**UX Evaluation Tool** is an open-source, local-first, browser-based evaluation tool designed for Human Factors practitioners, UX researchers, product designers, and engineering teams.
 
-## 我们解决的问题
+It evaluates user interface and product screen proposals at the **design-image / screenshot level** against multi-layer human factors baselines, physical viewing geometry, platform guidelines, and accessibility standards.
 
-设计图评审阶段常见问题是：团队能看到视觉稿，但难以系统判断触控目标、误触风险、可读性、认知负荷、平台规范和场景人因风险。传统可用性测试发生较晚，专业人因工具又过重，普通团队缺少轻量、可解释、能落在设计图上的风险评估工具。
+---
 
-## 我们不是
+## 2. Core Problem Solved
 
-- 不是普通 AI UI 评审工具。
-- 不是单纯 WCAG 检查工具。
-- 不是 Maze / UserTesting 这类可用性测试平台。
-- 第一阶段不是 Figma 插件。
-- 第一阶段不是完整合规平台。
+During early design reviews, design handoffs, and pre-implementation evaluations, teams face recurring challenges:
+- **Visual-only reviews miss ergonomic realities**: A visual mockup looks balanced on a designer's monitor, but touch targets may be physically undersized on handheld devices or unreadable at nominal cockpit viewing distances.
+- **Traditional usability testing happens late**: Formal lab or remote testing requires working prototypes or production code, discovering basic ergonomic or legibility flaws when changes are costly.
+- **Generic accessibility tools focus only on DOM/code**: Existing web audit tools require live HTML/DOM elements and cannot evaluate static mockups, automotive screen exports, or embedded hardware UI images.
+- **Specialized ergonomics platforms are heavy and disconnected**: Professional human factors tools require complex 3D CAD models or optical lab setups, making lightweight, everyday design-stage verification inaccessible to ordinary product teams.
 
-## 核心用户
+UX Evaluation Tool bridges this gap by bringing **deterministic human factors calculations, platform design conventions, and spatial evidence annotations** directly onto design images in the browser.
 
-- 产品经理。
-- 交互与视觉设计师。
-- 用户研究员。
-- 人因工程师。
-- HMI、IoT、家电和设备屏幕团队。
+---
 
-## 输入
+## 3. Product Positioning
 
-- 设计图。
-- 设备类型。
-- 显示尺寸。
-- 屏幕分辨率。
-- 使用距离。
-- 目标用户人群属性。
-- 使用场景。
-- 规则集选择。
+- **Design-Image Stage Evaluation**: Operates directly on uploaded UI mockups, screen exports, or interface screenshots without requiring live code, runtime frameworks, or Figma plugin dependencies.
+- **Human Factors & UX Centric**: Bridges physical display hardware facts (screen diagonal, resolution, aspect ratio, viewing distance) with perceptual legibility, motor interaction accuracy, and cognitive scanning workload.
+- **Deterministic & Traceable Rule Evaluation**: Generates transparent, verifiable rule traces across hard accessibility constraints (L1), platform design conventions (L2), and human factors models (L3), with domain-aware applicability support (L4).
+- **Capability-Driven Precision**: Dynamically applies the highest possible evaluation tier based on available evidence rather than forcing rigid global modes.
+- **Local-First & Privacy-Preserving**: Runs 100% in the user's browser; images, measurements, and project state remain in local browser memory and IndexedDB storage with zero cloud telemetry.
 
-## 输出
+---
 
-- 设计图上的问题标注。
-- 问题列表。
-- 风险等级。
-- 优化建议。
-- 依据来源。
-- 规则命中、理论推断、启发式风险或自定义规则的解释类型。
+## 4. What We Are Not (Explicit Boundaries)
 
-## 差异化
+To avoid ambiguity in product scope and expectations:
+- **Not a Generic Generative AI UI Reviewer**: Does not rely on ungrounded large language model (LLM) visual intuition or opaque AI opinions. Evaluation is deterministic, rule-based, and traceable to formal standards.
+- **Not Automated Computer Vision (CV) / OCR**: Does not guess element boundaries or screen densities automatically. Evaluation is anchored on user-verified spatial bounding boxes and explicit hardware/design parameters.
+- **Not a Pure WCAG-Only Checker**: Evaluates color contrast as part of a wider human factors framework, but extends beyond web accessibility into physical touch ergonomics and visual angle legibility.
+- **Not a Usability Testing Platform**: Does not replace empirical user research, eye-tracking studies, or behavioral analytics platforms (e.g., Maze, UserTesting).
+- **Not a Legal Compliance Certification Tool**: Findings and evidence reports serve as **decision-support references** to identify design risks early; they do not constitute statutory or legal certification.
+- **Not a Cloud SaaS Platform**: Does not require user accounts, team collaboration servers, or cloud synchronization.
 
-核心差异化是 human factors + UX + explainable rule layer。项目将 WCAG 等强规则、平台规范、人因与认知模型、行业场景规则和自定义规则分层表达，并在输出时明确依据来源和推理类型。
+---
 
-## 第一阶段边界
+## 5. Target Users
 
-- 仅做本地前端原型。
-- 使用 mock analysis。
-- 不接数据库。
-- 不接真实 AI。
-- 不做复杂服务端规则库。
+- **UX & Product Designers**: Verifying touch target sizes, tap clearances, and legibility before design freeze or developer handoff.
+- **Human Factors & Ergonomics Specialists**: Evaluating cockpit displays, industrial touchscreens, or medical device interfaces against visual angle and physical size criteria.
+- **UX Researchers**: Gathering structured, quantitative spatial evidence during heuristic evaluations and expert reviews.
+- **Product Managers**: Assessing early UI feasibility, cross-platform adaptation risks, and interface accessibility baselines.
+- **HMI & Embedded Device Teams**: Designing interfaces for automotive center stacks, digital clusters, appliances, and IoT touchscreens.
+
+---
+
+## 6. Primary Inputs & Outputs
+
+### Primary Inputs
+1. **Design Image**: UI screenshot or mockup export (PNG, JPEG, WebP).
+2. **Screen Hardware Context**: Physical screen diagonal and display resolution (used to derive exact millimeter-per-pixel calibration).
+3. **Viewing Distance**: User-specified nominal viewing distance (e.g., `500 mm`, `50 cm`, `0.7 m`).
+4. **Target Platform & Design Basis**: Declared target platform (`iOS`, `Android`, `Web`, `Custom`) and optional design reference width (pt / dp / CSS px scaling).
+5. **Spatial Evidence Annotations**: User-defined element bounding boxes, optional decoupled touch bounds, representative character measurements, and sampled colors.
+
+### Primary Outputs
+1. **Spatial Evidence Overlay**: Interactive normalized canvas annotations with visual bounds, touch target hot zones, and measurement indicators.
+2. **Structured Findings & Verdicts**: Per-element actionable findings categorized by severity, rule layer, and epistemic basis.
+3. **Multi-Section Element Inspector**: Detailed breakdown of visual pixels, logical units, physical millimeters, visual angles, and color contrast ratios.
+4. **Self-Contained Visual Evidence Report**: Zero-dependency standalone HTML report containing embedded canvas evidence screenshots, item cards, active reference citations, and evaluation coverage status.
+
+---
+
+## 7. Core Differentiation
+
+| Dimension | UX Evaluation Tool | Generic AI UI Reviewers | Web Accessibility Checkers | Usability Testing Tools |
+| :--- | :--- | :--- | :--- | :--- |
+| **Input Basis** | Static design images + explicit physical context | Design image + freeform text prompt | Live HTML / DOM | Interactive prototypes + user sessions |
+| **Evaluation Method** | Deterministic human factors math & multi-layer rule tracing | Opaque generative LLM visual heuristics | DOM property scanning & CSS contrast check | User task completion metrics & feedback |
+| **Physical Geometry** | Full dual-axis mm calibration & arcminute visual angle | None (pixel-only intuition) | None (CSS pixels only) | Empirical observation |
+| **Data Privacy** | 100% Local-first (IndexedDB, zero cloud sync) | Cloud upload to third-party AI APIs | Varies by vendor | Cloud recording & analytics |
+| **Traceability** | Exact rule IDs, formulas, references, and evidence tiers | Subjective AI commentary | Standards SC citations | Qualitative user quotes & heatmaps |

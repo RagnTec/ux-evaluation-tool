@@ -1,294 +1,90 @@
-# 03 Annotation, Evidence, and Rule Explanation Model
+# 03 Spatial Evidence & Element Data Models
 
-## Purpose
+**English** | [简体中文](./03_annotation_model.zh-CN.md)
 
-This model defines the stable data contract for design-image annotations, evidence, and rule explanation. It supports the current mock analysis and leaves room for future rule engines or AI-assisted evaluation without changing the UI contract.
+---
 
-This document does not claim that the project has fully imported any external standard. Examples are example structures only.
+## 1. Data Model Purpose & Architecture
 
-## Annotation Interface
+In **UX Evaluation Tool**, data modeling is divided into three distinct operational tiers:
 
-```ts
-export interface Annotation {
-  annotation_id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  issue_type: IssueType;
-  severity: Severity;
-  description: string;
-  recommendation: string;
-  rule_id: string;
-  rule_layer: RuleLayer;
-  reasoning_type: ReasoningType;
-  evidence: Evidence[];
-  evidence_level: EvidenceLevel;
-  measurement: Measurement;
-  source_priority: number;
-  confidence: number;
-  target_user_group: string[];
-  applied_context: AppliedContext;
-  contextual_findings: ContextualFinding[];
-  status: AnnotationStatus;
-  conflict_status: ConflictStatus;
-  custom_rule_source?: string;
-}
+```
+┌───────────────────────────────────────────────────────────────────┐
+│ 1. Production Spatial Evidence: DesignElement                     │
+│    (User-drawn bounds, touch zones, color samples, measurements)  │
+├───────────────────────────────────────────────────────────────────┤
+│ 2. Deterministic Rule Traces & Findings: RuleComparisonTrace      │
+│    (Per-check quantitative comparison, thresholds, references)    │
+├───────────────────────────────────────────────────────────────────┤
+│ 3. Unified Presentation Model: ElementPresentationModel           │
+│    (Locale-aware formatting for Cards, Inspector, and Reports)    │
+├ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┤
+│ [Isolated Demonstration Model: Legacy Annotation]                 │
+│ (Optional pre-packaged mock annotations, segregated from manual) │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
-## Evidence Interface
+This separation ensures that user-created spatial measurements remain strictly isolated from mock data and presentation formatting.
 
-```ts
-export interface Evidence {
-  evidence_id: string;
-  source_name: string;
-  source_type: string;
-  rule_id: string;
-  guideline_ref: string;
-  summary: string;
-  evidence_level: EvidenceLevel;
-  reasoning_type: ReasoningType;
-  reference_status: ReferenceStatus;
-  claim_strength: ClaimStrength;
-  priority: number;
-  url?: string;
-  note?: string;
-}
+---
 
-export interface Measurement {
-  metric_name: string;
-  current_value: string | number;
-  threshold_value: string | number;
-  recommended_value?: string | number;
-  unit?: string;
-  delta?: string | number;
-  interpretation: string;
-}
+## 2. Production Spatial Evidence Model (`DesignElement`)
 
-export interface AppliedContext {
-  device_type?: string;
-  resolution?: string;
-  viewing_distance?: string;
-  usage_context?: string;
-  target_user_groups?: string[];
-  rule_sets?: string[];
-  evaluation_dimensions?: string[];
-  impact_summary: string;
-}
+`DesignElement` represents a user-annotated UI feature on the design canvas with concrete spatial and physical evidence.
 
-export interface ContextualFinding {
-  finding_id: string;
-  context_type: "user_group" | "usage_context" | "rule_set" | "device_profile";
-  context_label: string;
-  suitability: "suitable" | "acceptable" | "risk" | "not_suitable" | "unknown";
-  severity_adjustment?: "none" | "increase" | "decrease";
-  reason: string;
-  evidence_refs?: string[];
-  recommendation?: string;
-}
-```
+### Core Conceptual Fields
 
-## Annotation Fields
+| Field Category | Key Fields | Purpose & Interpretation |
+| :--- | :--- | :--- |
+| **Identity & Semantics** | `element_id`, `label`, `element_type`, `interaction_type` | Unique identifier, display name, semantic role (`button`, `text`, `icon`, `card`, `input`, etc.), and interaction modality (`primary_action`, `navigation`, `none`, etc.). |
+| **Visual Bounding Box** | `image_pixel_bounds` ($x, y, w, h$) | Absolute pixel coordinates on the unscaled source image, with normalized $[0, 1]$ canvas mappings. |
+| **Touch Boundaries** | `touch_bounds`, `touch_source_provenance` | Independent touch hot zone rectangle, decoupled from visual bounds to evaluate actual tap clearances. |
+| **Typographic Measurement**| `character_height_px`, `character_height_physical_mm`, `text_layout`, `text_role` | Bounding box of a single representative glyph, rendered character height in millimeters, text layout classification (`single_line` vs `multi_line`), and typographic role. |
+| **Color Evidence** | `foreground_color`, `background_color`, `contrast_evaluation` | Sampled HEX/RGB color values and calculated WCAG luminance contrast ratio. |
+| **Physical Geometry** | `physical_geometry` (`width_mm`, `height_mm`, `calibration_quality`, `is_calibrated`) | Calibrated millimeter dimensions derived from screen diagonal, resolution, and screenshot scope. |
+| **Platform Evaluations** | `target_size_evaluation`, `text_size_evaluation` | Quantitative results evaluating touch sizes (pt/dp/px) and font sizes against platform guidelines. |
 
-| Field | Purpose |
-| --- | --- |
-| `annotation_id` | Stable annotation identifier. Equivalent to the user-facing `id` concept. |
-| `x`, `y`, `width`, `height` | Normalized bounding box in the uploaded image coordinate space. Values are ratios from 0 to 1, not screen pixels or page viewport coordinates. |
-| `issue_type` | Normalized issue category. |
-| `severity` | Risk severity. |
-| `description` | Human-readable issue explanation. |
-| `recommendation` | Suggested improvement. |
-| `rule_id` | Primary rule identifier used for traceability. |
-| `rule_layer` | L1-L5 rule layer. |
-| `reasoning_type` | Whether the issue is a rule match, theory inference, heuristic risk, or custom rule. |
-| `evidence` | Structured evidence records that explain the source of the finding. |
-| `evidence_level` | Primary evidence strength for the annotation. |
-| `measurement` | Mock or computed quantified result used to explain the risk. |
-| `source_priority` | Priority of the primary source. Lower number means higher priority. |
-| `confidence` | Mock or computed confidence between 0 and 1. |
-| `target_user_group` | User groups affected by the risk. |
-| `applied_context` | Simulated explanation of which input parameters affected the finding. |
-| `contextual_findings` | Simulated differentiated findings for user groups, usage contexts, rule sets, or device profiles. |
-| `status` | Review lifecycle status. |
-| `conflict_status` | Whether rule conflict exists. |
-| `custom_rule_source` | Optional source label for L5 custom rules. |
+---
 
-## Evidence Fields
+## 3. Rule Evaluation & Trace Contracts
 
-| Field | Purpose |
-| --- | --- |
-| `evidence_id` | Stable evidence identifier. |
-| `source_name` | Human-readable source name, such as WCAG, Apple HIG, or a project rule set. |
-| `source_type` | Source category, such as standard, platform guideline, theory, heuristic, domain rule, or custom rule. |
-| `rule_id` | Rule identifier connected to the annotation. |
-| `guideline_ref` | Guideline section, rule label, or internal reference. |
-| `summary` | Short explanation of why the source matters. Do not quote standards unless the text has been verified. |
-| `evidence_level` | Evidence level enum. |
-| `reasoning_type` | Reasoning type enum. |
-| `reference_status` | Whether the source is verified, example-only, or pending verification. |
-| `claim_strength` | Claim strength: strong, moderate, or weak. Non-verified references must not use strong claims. |
-| `priority` | Source priority for conflict handling. |
-| `url` | Optional reference URL. |
-| `note` | Optional implementation or reviewer note. |
+### `RuleComparisonTrace`
+Represents the granular mathematical comparison between a measured element dimension and a specific rule reference:
+- `rule_id`: Stable identifier for traceability (e.g., `L1-WCAG-SC-1.4.3`, `L2-APPLE-HIG-TARGET-SIZE`).
+- `rule_layer`: Hierarchy layer (`L1_HARD_CONSTRAINT`, `L2_PLATFORM_GUIDELINE`, `L3_HUMAN_FACTORS`, `L4_DOMAIN_RULE`).
+- `source_title`: Human-readable reference standard name (e.g., `Apple Human Interface Guidelines`).
+- `metric_name`: Quantified property being evaluated (e.g., `touch_target_size`, `contrast_ratio`, `visual_angle`).
+- `measured_value`: Numeric value extracted from spatial or color evidence.
+- `threshold_value`: Benchmark or threshold from the governing standard.
+- `verdict`: State of comparison (`meets_reference`, `below_recommended`, `below_threshold`, `needs_info`).
+- `reasoning_type`: Epistemic basis (`rule_match`, `theory_inference`, `heuristic_risk`, `custom_rule`).
 
-## Measurement Fields
+### `ElementActionableFinding`
+Consolidates rule trace outcomes into actionable practitioner guidance:
+- `findingId`: Unique finding identifier.
+- `severity`: Risk classification (`critical`, `below_threshold`, `below_recommended`, `advisory`).
+- `summaryText`: Single-sentence conclusion for summary tables and cards.
+- `detailText`: Comprehensive explanation citing the underlying measurement and reference rationale.
+- `recommendationText`: Actionable guidance for improving the interface.
 
-| Field | Purpose |
-| --- | --- |
-| `metric_name` | Name of the measured metric, such as contrast ratio or touch target size. |
-| `current_value` | Current simulated or computed value. |
-| `threshold_value` | Reference threshold used by the mock rule or future rule engine. |
-| `recommended_value` | Suggested target value. |
-| `unit` | Optional unit, such as pt, dp, items, or blocks. |
-| `delta` | Difference between current value and threshold when useful. |
-| `interpretation` | User-readable explanation of what the measurement means. |
+---
 
-Current values may be mock measurements. The UI must label them as simulated or mock measurements unless the project later implements real image parsing and calculation.
+## 4. Unified Presentation Model (`ElementPresentationModel`)
 
-## Applied Context
+`ElementPresentationModel` is dynamically constructed by `buildElementPresentationModel` to feed the UI Card, Element Inspector Drawer, Report Preview, and HTML Report Generator:
+- **Visual Dimensions**: Formatted pixel strings (`visualPxDisplay`), area share percentage, and min-side labels.
+- **Logical Dimensions**: Formatted pt / dp / CSS px strings (`logicalDisplay`) with scale factor ratios.
+- **Physical Geometry**: Formatted millimeter strings (`physicalDisplay`) with calibration provenance notices.
+- **Visual Angle**: Formatted degree and arcminute strings (`visualAngleDisplay`, `visualAngleDetailDisplay`) with viewing distance context.
+- **Typography & Character Height**: Formatted font size estimates, glyph height visual angles, and legibility status.
+- **Touch Review**: Touch verdict badges, adjacent element clearance distances, and overlap conflict alerts.
+- **Unified Conclusion**: Highest active evaluation tier badge (`highestTierLabel`), unified conclusion state, and consolidated findings.
 
-`applied_context` explains how the current input parameters influence a mock finding. It may include device type, resolution, viewing distance, usage context, target user groups, selected rule sets, and evaluation dimensions.
+---
 
-The current MVP generates this as simulated explanation text. It is not a real rule-engine trace.
+## 5. Isolated Demonstration Model (Legacy `Annotation`)
 
-## Contextual Findings
-
-`contextual_findings` prevents the UI from presenting one average conclusion for all users and contexts. Each finding states whether a design is suitable, acceptable, risky, not suitable, or unknown for a specific user group, usage context, rule set, or device profile.
-
-These values are simulated in the MVP. They do not replace real usability testing, real human factors validation, or a rule-engine audit.
-
-## Rule Reference Boundary
-
-Evidence must declare `reference_status`:
-
-- `verified_reference`: confirmed standard or platform rule summary.
-- `example_reference`: mock or example reference for demonstration.
-- `pending_verification`: not yet verified and must not support strong conclusions.
-
-Evidence must declare `claim_strength`:
-
-- `strong`
-- `moderate`
-- `weak`
-
-If `reference_status` is not `verified_reference`, `claim_strength` must not be `strong`.
-
-## Coordinate System
-
-The current MVP uses a normalized image coordinate system:
-
-- `x`: horizontal start position as a ratio of image width.
-- `y`: vertical start position as a ratio of image height.
-- `width`: annotation box width as a ratio of image width.
-- `height`: annotation box height as a ratio of image height.
-
-Example: `x = 0.1` means the annotation starts at 10% of the uploaded image width. This is not a screen coordinate and not a page viewport coordinate. Rendering should convert these values to percentages in the image container.
-
-The displayed image should preserve its original aspect ratio. Annotation boxes are bound to the actual rendered image content area, not to the outer panel or viewport.
-
-## Enums
-
-### `issue_type`
-
-- `touch_target`
-- `spacing`
-- `contrast`
-- `readability`
-- `information_hierarchy`
-- `cognitive_load`
-- `recognition`
-- `custom_rule`
-
-### `severity`
-
-- `low`
-- `medium`
-- `high`
-- `critical`
-
-### `rule_layer`
-
-- `L1_HARD_CONSTRAINT`
-- `L2_PLATFORM_GUIDELINE`
-- `L3_HUMAN_FACTORS`
-- `L4_DOMAIN_RULE`
-- `L5_CUSTOM_RULE`
-
-### `reasoning_type`
-
-- `rule_match`
-- `theory_inference`
-- `heuristic_risk`
-- `custom_rule`
-
-### `evidence_level`
-
-- `standard`
-- `platform_guideline`
-- `theory`
-- `heuristic`
-- `custom`
-
-### `status`
-
-- `OPEN`
-- `ACKNOWLEDGED`
-- `FIXED`
-- `VERIFIED`
-- `CLOSED`
-
-### `conflict_status`
-
-- `none`
-- `potential_conflict`
-- `overridden`
-- `blocked_by_higher_priority_rule`
-
-## Example Structure
-
-```json
-{
-  "annotation_id": "ann-example",
-  "x": 0.1,
-  "y": 0.2,
-  "width": 0.4,
-  "height": 0.08,
-  "issue_type": "contrast",
-  "severity": "high",
-  "description": "示例：关键文本与背景的视觉区分不足。",
-  "recommendation": "示例：提升前景与背景的对比，并保留足够的状态区分。",
-  "rule_id": "L1-WCAG-CONTRAST-EXAMPLE",
-  "rule_layer": "L1_HARD_CONSTRAINT",
-  "reasoning_type": "rule_match",
-  "evidence_level": "standard",
-  "measurement": {
-    "metric_name": "Contrast ratio",
-    "current_value": "2.8:1",
-    "threshold_value": "4.5:1",
-    "recommended_value": ">=4.5:1",
-    "interpretation": "示例：当前模拟对比度低于普通文本可读性建议阈值。"
-  },
-  "source_priority": 1,
-  "confidence": 0.82,
-  "target_user_group": ["低视力用户"],
-  "status": "OPEN",
-  "conflict_status": "none",
-  "evidence": [
-    {
-      "evidence_id": "ev-example",
-      "source_name": "WCAG 2.2",
-      "source_type": "standard",
-      "rule_id": "L1-WCAG-CONTRAST-EXAMPLE",
-      "guideline_ref": "Contrast-related guideline reference",
-      "summary": "示例结构：说明该来源用于支持颜色对比风险判断。",
-      "evidence_level": "standard",
-      "reasoning_type": "rule_match",
-      "priority": 1
-    }
-  ]
-}
-```
-
-## Current Boundary
-
-The current implementation uses mock data. It does not calculate true contrast, parse real standards, perform real AI image recognition, or resolve real rule conflicts.
+The repository retains a legacy `Annotation` model used strictly by the optional demonstration toggle (`showDemoResults` / `analysisService.analyzeDesign`):
+- **Demonstration Scope**: Displays hardcoded or simulated issue annotations on sample UI mockups.
+- **Strict Isolation**: Legacy mock annotations are completely segregated from live user-created `DesignElement` objects.
+- **Report Protection**: Report generation and export routines ignore demo annotations, ensuring exported artifacts reflect only verified, measured spatial evidence.
