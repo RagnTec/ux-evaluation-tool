@@ -97,9 +97,9 @@ The evaluation engine **automatically matches applicable rules** based on availa
 
 ### Actual Evaluation Coverage (Neutral Coverage Semantics)
 The summary report clearly partitions evaluated dimensions:
-* **Covered Dimensions**: Depicted with neutral bullet `●` (e.g., `● Color Contrast`, `● Representative Character Visual Angle`, `● Physical Touch Target`, `● Screenshot Font Size Estimate`).
+* **Covered Dimensions**: Depicted with bullet `●` (e.g., `● Color Contrast`, `● Representative Character Visual Angle`, `● Physical Touch Target`, `● Screenshot Font Size Estimate`).
   > **Note**: Coverage is a neutral indicator that valid evaluation or estimation took place; **coverage does not imply PASS**. Pass/fail/risk verdicts are strictly indicated on individual findings.
-* **Pending Additional Info**: Depicted with neutral amber circle `○` (e.g., `○ Android Platform Touch Target`, `○ Android Design Font Size`), explaining what information is needed to unlock full platform rules. (Hidden if no pending items exist).
+* **Pending Additional Info**: Depicted with open circle `○` (e.g., `○ Android Platform Touch Target`, `○ Android Design Font Size`), explaining what information is needed to unlock full platform rules. (Hidden if no pending items exist).
 
 ### Dynamic Active References
 References displayed in the report are dynamically aggregated from rule traces that actively participated in evaluation:
@@ -126,9 +126,9 @@ When design scale mappings (pt / dp / CSS px) are unavailable, elements **are no
   * **Physical Size Measurement**: Physical width, height, and area calculations in millimeters (`mm`).
   * **Viewing Distance & Visual Angle Evaluation**: Subtended arcminute visual angle calculations against human factors baselines.
   * **Human Factors Fallback References**:
-    * Representative character vertical visual angle reference ($\ge 16'$ basic, $\ge 20'$ recommended).
-    * Graphical detail vertical visual angle reference ($\ge 16'$ basic, $\ge 22'$ recommended).
-    * Physical touch target size reference ($\ge 9.0\,\text{mm}$ where applicable).
+    * Representative character vertical visual angle reference (≥ 16 arcmin basic, ≥ 20 arcmin recommended).
+    * Graphical detail vertical visual angle reference (≥ 16 arcmin basic, ≥ 22 arcmin recommended).
+    * Physical touch target size reference (≥ 9 mm where applicable).
     * *Domain-Specific Reference Note*: Specialized automotive references (such as NHTSA driver visual angles or 17.5 mm driving touch targets) exist in the rule architecture, but the current Public UI does not yet expose the structured role/state inputs required to activate them as directly applicable references.
   * **Estimated Font Size Evaluation**: Evaluates single-line text using visual height or character height estimates.
 * **Capabilities Requiring Design Basis**:
