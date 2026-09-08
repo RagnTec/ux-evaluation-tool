@@ -90,6 +90,7 @@ export interface RectangleOverlapResult {
 export interface NearestTouchTargetResult {
   nearest_element_id?: string;
   nearest_element_label?: string;
+  nearest_element_index?: number;
   distance_px: number;
   distance_logical?: number;
   distance_mm?: number;
@@ -346,7 +347,7 @@ export function createManualDesignElement(
     element_id: `manual-el-${Date.now()}-${index}`,
     source: "manual",
     element_type: "other",
-    label: `元素 #${index}`,
+    label: undefined,
     normalized_bounds: bounds,
     image_pixel_bounds: pixelBounds,
     calibration_mode: calibrationMode,
@@ -700,9 +701,11 @@ export function calculateNearestTouchTarget(
 
   if (!nearestEl) return null;
 
+  const nearestIndex = allElements.findIndex(e => e.element_id === nearestEl!.element_id);
   const res: NearestTouchTargetResult = {
     nearest_element_id: nearestEl.element_id,
-    nearest_element_label: nearestEl.label || `Element #${allElements.findIndex(e => e.element_id === nearestEl!.element_id) + 1}`,
+    nearest_element_label: nearestEl.label,
+    nearest_element_index: nearestIndex >= 0 ? nearestIndex + 1 : undefined,
     distance_px: minDistance,
     closest_point_a: closestA,
     closest_point_b: closestB,

@@ -10,6 +10,7 @@ import type {
   TextSizeUnit,
   TextWeightCategory
 } from "../types/designElement";
+import type { Locale } from "../i18n/types";
 import { formatNumericValue } from "./metricFormatting";
 
 /**
@@ -147,7 +148,8 @@ export interface RelativeTypographyMetrics {
 export function computeRelativeTypographyMetrics(
   element: DesignElement,
   imageHeight: number,
-  allElements?: DesignElement[]
+  allElements?: DesignElement[],
+  locale: Locale = "zh-CN"
 ): RelativeTypographyMetrics | null {
   if (element.element_type !== "text" || !element.image_pixel_bounds || element.image_pixel_bounds.height <= 0) {
     return null;
@@ -155,7 +157,10 @@ export function computeRelativeTypographyMetrics(
 
   const h = element.image_pixel_bounds.height;
   const share = imageHeight > 0 ? (h / imageHeight) * 100 : 0;
-  const shareFormatted = `占截图高度 ${share.toFixed(1)}%`;
+  const shareFormatted =
+    locale === "en"
+      ? `Covers ${share.toFixed(1)}% of screenshot height`
+      : `占截图高度 ${share.toFixed(1)}%`;
 
   let ratioToSmallestText: number | undefined;
   let ratioToLargestText: number | undefined;
@@ -172,10 +177,16 @@ export function computeRelativeTypographyMetrics(
 
       if (minH > 0 && Math.abs(h - minH) > 1) {
         ratioToSmallestText = Math.round((h / minH) * 10) / 10;
-        relativeRatioDisplay = `约为最小文本标注的 ${ratioToSmallestText}×`;
+        relativeRatioDisplay =
+          locale === "en"
+            ? `about ${ratioToSmallestText}× the minimum text annotation size`
+            : `约为最小文本标注的 ${ratioToSmallestText}×`;
       } else if (maxH > 0 && Math.abs(h - maxH) > 1) {
         ratioToLargestText = Math.round((h / maxH) * 10) / 10;
-        relativeRatioDisplay = `约为最大文本标注的 ${ratioToLargestText}×`;
+        relativeRatioDisplay =
+          locale === "en"
+            ? `about ${ratioToLargestText}× the maximum text annotation size`
+            : `约为最大文本标注的 ${ratioToLargestText}×`;
       }
     }
   }

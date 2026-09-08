@@ -54,7 +54,8 @@ import {
   referenceStatusMessagesEn,
   getReasoningTypeLabel,
   getSuitabilityLabel,
-  getElementDisplayName
+  getElementDisplayName,
+  formatTargetSizeEvaluation
 } from "./utils/labels";
 import {
   deviceProfiles,
@@ -171,6 +172,7 @@ import { getUnifiedResultExplanation } from "./utils/impactRecommendation";
 import { createCroppedPreservedScaleMapping } from "./utils/logicalMapping";
 import {
   resolveAllCapabilities,
+  getReadableFactRequirement,
   type CapabilityContext
 } from "./utils/capabilityResolver";
 import {
@@ -295,6 +297,29 @@ export function App() {
     hex: string;
   } | null>(null);
   const magnifierCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const topHeaderRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const el = topHeaderRef.current;
+    if (!el) return;
+    const updateHeight = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.height > 0) {
+        document.documentElement.style.setProperty("--top-header-height", `${Math.round(rect.height)}px`);
+      }
+    };
+    updateHeight();
+    const ro = new ResizeObserver(() => {
+      updateHeight();
+    });
+    ro.observe(el);
+    window.addEventListener("resize", updateHeight);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, []);
+
   const [characterMeasuringElementId, setCharacterMeasuringElementId] = useState<string | null>(null);
   const isColorSamplingActiveRef = useRef<boolean>(false);
   const [calibrationMode, setCalibrationMode] = useState<CalibrationMode>("full_screen");
@@ -608,7 +633,8 @@ export function App() {
         logicalMapping,
         calibration: effectiveInspectorElement.physical_geometry
       },
-      effectiveInspectorElement
+      effectiveInspectorElement,
+      locale
     );
   }, [
     effectiveInspectorElement,
@@ -618,7 +644,8 @@ export function App() {
     croppedScaleMode,
     originalFullImageWidthInput,
     resolvedDisplayParams,
-    logicalMapping
+    logicalMapping,
+    locale
   ]);
 
   const currentCapabilityContext: CapabilityContext = useMemo(() => {
@@ -646,13 +673,13 @@ export function App() {
   ]);
 
   const workspaceCapabilities = useMemo(() => {
-    return resolveAllCapabilities(currentCapabilityContext, null);
-  }, [currentCapabilityContext]);
+    return resolveAllCapabilities(currentCapabilityContext, null, locale);
+  }, [currentCapabilityContext, locale]);
 
   const activeElementCapabilities = useMemo(() => {
     if (!activeElement) return null;
-    return resolveAllCapabilities(currentCapabilityContext, activeElement);
-  }, [currentCapabilityContext, activeElement]);
+    return resolveAllCapabilities(currentCapabilityContext, activeElement, locale);
+  }, [currentCapabilityContext, activeElement, locale]);
 
   const handleOpenParamsModal = (
     section: EvaluationParametersSection = "screenshot"
@@ -872,10 +899,10 @@ export function App() {
           locale
         );
         const scenarioScope = deriveScenarioScope(form.scenario, contextEnvironment, contextOperationState, form.scenarioDomain);
-        const targetSizeTrace = el.interaction_type !== "none" ? buildTargetSizeTrace(el, logicalMapping, undefined, mappingPlatform) : null;
+        const targetSizeTrace = el.interaction_type !== "none" ? buildTargetSizeTrace(el, logicalMapping, undefined, mappingPlatform, locale) : null;
         const touchPhysicalTrace = el.interaction_type !== "none" && imageNaturalDimensions ? buildTouchPhysicalTrace(el, scenarioScope, mmPerPixel, el.calibration_mode || calibrationMode, imageNaturalDimensions.width, imageNaturalDimensions.height, locale) : null;
-        const contrastTrace = el.contrast_evaluation ? buildContrastTrace(el.contrast_evaluation) : null;
-        const textSizeTrace = el.element_type === "text" ? buildTextSizeTrace(el.text_size_evaluation, logicalMapping, mappingPlatform) : null;
+        const contrastTrace = el.contrast_evaluation ? buildContrastTrace(el.contrast_evaluation, locale) : null;
+        const textSizeTrace = el.element_type === "text" ? buildTextSizeTrace(el.text_size_evaluation, logicalMapping, mappingPlatform, locale) : null;
         const spacingTrace = el.interaction_type !== "none" && nearest ? buildSpacingTrace(nearest, logicalMapping, el, contextOperationState, locale) : null;
         const physicalTrace = buildPhysicalGeometryTrace(el, el.calibration_mode || calibrationMode, locale);
         const charVaTrace = el.element_type === "text" ? buildCharacterVisualAngleTrace(el, scenarioScope, undefined, form.distance, locale) : null;
@@ -906,7 +933,7 @@ export function App() {
         return {
           index: index + 1,
           elementId: el.element_id,
-          label: el.label || (locale === "en" ? `Element #${index + 1}` : `元素 #${index + 1}`),
+          label: getElementDisplayName(el, index, locale),
           elementType: el.element_type,
           elementTypeLabel: presentation.elementTypeLabel,
           interactionType: presentation.interactionType,
@@ -1050,10 +1077,10 @@ export function App() {
           ? calculateNearestTouchTarget(el, freshElements, imageNaturalDimensions.width, imageNaturalDimensions.height, logicalMapping)
           : null;
         const scenarioScope = deriveScenarioScope(form.scenario, contextEnvironment, contextOperationState, form.scenarioDomain);
-        const targetSizeTrace = isInteractive ? buildTargetSizeTrace(el, logicalMapping, undefined, mappingPlatform) : null;
+        const targetSizeTrace = isInteractive ? buildTargetSizeTrace(el, logicalMapping, undefined, mappingPlatform, locale) : null;
         const touchPhysicalTrace = isInteractive && imageNaturalDimensions ? buildTouchPhysicalTrace(el, scenarioScope, mmPerPixel, el.calibration_mode || calibrationMode, imageNaturalDimensions.width, imageNaturalDimensions.height, locale) : null;
-        const contrastTrace = el.contrast_evaluation ? buildContrastTrace(el.contrast_evaluation) : null;
-        const textSizeTrace = el.element_type === "text" ? buildTextSizeTrace(el.text_size_evaluation, logicalMapping, mappingPlatform) : null;
+        const contrastTrace = el.contrast_evaluation ? buildContrastTrace(el.contrast_evaluation, locale) : null;
+        const textSizeTrace = el.element_type === "text" ? buildTextSizeTrace(el.text_size_evaluation, logicalMapping, mappingPlatform, locale) : null;
         const spacingTrace = isInteractive && nearest ? buildSpacingTrace(nearest, logicalMapping, el, contextOperationState, locale) : null;
         const charVaTrace = el.element_type === "text"
           ? buildCharacterVisualAngleTrace(el, scenarioScope, undefined, form.distance, locale)
@@ -1498,7 +1525,7 @@ export function App() {
       const origW = parseFloat(originalFullImageWidthInput);
       const logW = parseFloat(logicalRefWidthInput);
       if (isNaN(origW) || isNaN(logW) || origW <= 0 || logW <= 0) {
-        alert("请输入有效的原完整截图宽度与设计稿宽度数值。");
+        alert(locale === "en" ? "Please enter valid numbers for original full screenshot width and design width." : "请输入有效的原完整截图宽度与设计稿宽度数值。");
         return;
       }
       const mapping = createCroppedPreservedScaleMapping(
@@ -1521,7 +1548,7 @@ export function App() {
     const logH = logicalRefHeightInput ? parseFloat(logicalRefHeightInput) : undefined;
 
     if (isNaN(imgW) || isNaN(logW) || imgW <= 0 || logW <= 0) {
-      alert("请输入有效的参考图像像素与设计稿逻辑宽度数值。");
+      alert(locale === "en" ? "Please enter valid numbers for reference image pixels and design logic width." : "请输入有效的参考图像像素与设计稿逻辑宽度数值。");
       return;
     }
 
@@ -1600,7 +1627,7 @@ export function App() {
       touch_bounds_reference_clipped: undefined,
       touch_bounds_reference_warning: undefined,
       copied_from_element_id: sourceEl.element_id,
-      copied_from_element_label: sourceEl.label || `Element #${manualElements.findIndex(e => e.element_id === sourceEl.element_id) + 1}`
+      copied_from_element_label: sourceEl.label || undefined
     });
     setCopyFromElementId("");
   };
@@ -2996,7 +3023,7 @@ export function App() {
       />
 
       {/* Top Workspace Header with Capability Summary & Action Controls */}
-      <header className="topWorkspaceHeader">
+      <header className="topWorkspaceHeader" ref={topHeaderRef}>
         <div className="workspaceTitleArea">
           <h1 className="workspaceLogoText">UX Evaluation Tool</h1>
           <button
@@ -3335,7 +3362,7 @@ export function App() {
           {imageUrl ? (
             <div
               ref={imageStageRef}
-              className={`imageStage ${isAddingElement ? "drawingModeActive crosshairCursor" : ""} ${colorSamplingTarget ? "samplingModeActive" : ""} ${isTouchEditMode ? "touchEditingStage" : ""}`}
+              className={`imageStage ${isAddingElement ? "drawingModeActive crosshairCursor" : ""} ${colorSamplingTarget ? "samplingModeActive" : ""} ${isTouchEditMode ? "touchEditingStage" : ""} ${characterMeasuringElementId ? "measuringModeActive crosshairCursor" : ""}`}
               onPointerDown={handleStagePointerDown}
               onPointerMove={handleStagePointerMove}
               onPointerUp={handleStagePointerUp}
@@ -3561,7 +3588,7 @@ export function App() {
         ) : null}
       </main>
 
-      <aside className="panel right">
+      <aside className="panel right inspectorPanel">
         <h2>{locale === "en" ? "Evaluation & Measurements" : "评估与测量"}</h2>
 
         {/* Section 1: Real Manual Elements & Measurements */}
@@ -3874,10 +3901,10 @@ export function App() {
 
           // Rule Comparison Traces
           const inspectorScenarioScope = deriveScenarioScope(form.scenario, contextEnvironment, contextOperationState, form.scenarioDomain);
-          const targetSizeTrace = isInteractive ? buildTargetSizeTrace(targetElement, logicalMapping, inspectorWcagSpacing || undefined, mappingPlatform) : null;
+          const targetSizeTrace = isInteractive ? buildTargetSizeTrace(targetElement, logicalMapping, inspectorWcagSpacing || undefined, mappingPlatform, locale) : null;
           const touchPhysicalTrace = isInteractive && imageNaturalDimensions ? buildTouchPhysicalTrace(targetElement, inspectorScenarioScope, mmPerPixel, targetElement.calibration_mode || calibrationMode, imageNaturalDimensions.width, imageNaturalDimensions.height, locale) : null;
-          const contrastTrace = targetElement.contrast_evaluation ? buildContrastTrace(targetElement.contrast_evaluation) : null;
-          const textSizeTrace = targetElement.element_type === "text" ? buildTextSizeTrace(targetElement.text_size_evaluation, logicalMapping, mappingPlatform) : null;
+          const contrastTrace = targetElement.contrast_evaluation ? buildContrastTrace(targetElement.contrast_evaluation, locale) : null;
+          const textSizeTrace = targetElement.element_type === "text" ? buildTextSizeTrace(targetElement.text_size_evaluation, logicalMapping, mappingPlatform, locale) : null;
           const spacingTrace = isInteractive && inspectorNearestTouchTarget ? buildSpacingTrace(inspectorNearestTouchTarget, logicalMapping, targetElement, contextOperationState, locale) : null;
           const physicalTrace = buildPhysicalGeometryTrace(targetElement, targetElement.calibration_mode || calibrationMode, locale);
           const charVaTrace = targetElement.element_type === "text"
@@ -3945,8 +3972,13 @@ export function App() {
                       {locale === "en" ? "Element Name: " : "元素名称："}
                       <input
                         value={targetElement.label || ""}
-                        placeholder={locale === "en" ? "e.g. Purchase Button, Price Text" : "如：购买按钮、价格文字"}
-                        onChange={(e) => updateManualElement(targetElement.element_id, { label: e.target.value })}
+                        placeholder={getElementDisplayName(undefined, targetIndex, locale)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          updateManualElement(targetElement.element_id, {
+                            label: val.trim().length > 0 ? val : undefined
+                          });
+                        }}
                       />
                     </label>
                     <label>
@@ -4091,7 +4123,7 @@ export function App() {
                           )}
                           {presentation.textVisualShareDisplay && (
                             <div style={{ marginTop: "4px", color: "#64748b", fontSize: "10.5px" }}>
-                              {locale === "en" ? "Screen Height Share: " : "屏幕高度占比："}{presentation.textVisualShareDisplay}
+                              {presentation.textVisualShareDisplay}
                               {presentation.relativeTypographyDisplay && (
                                 <span style={{ marginLeft: "6px", color: "#2563eb", background: "#eff6ff", padding: "1px 6px", borderRadius: "4px" }}>
                                   {presentation.relativeTypographyDisplay}
@@ -4991,9 +5023,22 @@ export function App() {
                           {locale === "en" ? `Currently using [${getEvaluationTierLabel(primaryCapability.highestAvailableTier, "en")}]. For higher certainty, provide:` : `当前使用的是【${getEvaluationTierLabel(primaryCapability.highestAvailableTier, "zh-CN")}】。若需获得更确定的结果，可补充：`}
                         </p>
                         <ul className="upgradeMissingList">
-                          {primaryCapability.missingRequirementsForNextTier.map((req, i) => (
-                            <li key={i}>{req}</li>
-                          ))}
+                          {primaryCapability.missingFactIdsForNextTier && primaryCapability.missingFactIdsForNextTier.length > 0
+                            ? Array.from(
+                                new Set(
+                                  primaryCapability.missingFactIdsForNextTier.map((factId) =>
+                                    getReadableFactRequirement(
+                                      factId,
+                                      primaryCapability.checkId,
+                                      new Set(primaryCapability.missingFactIdsForNextTier),
+                                      locale
+                                    )
+                                  )
+                                )
+                              ).map((req, i) => <li key={i}>{req}</li>)
+                            : primaryCapability.missingRequirementsForNextTier.map((req, i) => (
+                                <li key={i}>{req}</li>
+                              ))}
                         </ul>
                         <button
                           type="button"
@@ -5111,21 +5156,24 @@ export function App() {
                         )}
 
                         {/* Platform rule & evidence details */}
-                        {targetElement.target_size_evaluation && (
-                          <div className={`contrastResultCard targetSizeCard mt-2 ${targetElement.target_size_evaluation.status}`}>
-                            <p className="summaryText"><b>{targetElement.target_size_evaluation.summary_text}</b></p>
-                            <p className="detailText">{targetElement.target_size_evaluation.detail_text}</p>
-                            {presentationPolicy.showEvidenceDetails && (
-                              <div className="evidenceBlock mt-1">
-                                <p className="evidenceTitle">{targetElement.target_size_evaluation.reference}</p>
-                                <div className="evidenceBadges">
-                                  <span className="badge ref-verified_reference">{locale === "en" ? "Verified Standard" : "已核验标准"}</span>
-                                  <span className="badge status">{locale === "en" ? "Strong Finding" : "强结论"}</span>
+                        {targetElement.target_size_evaluation && (() => {
+                          const formatted = formatTargetSizeEvaluation(targetElement.target_size_evaluation, locale);
+                          return (
+                            <div className={`contrastResultCard targetSizeCard mt-2 ${targetElement.target_size_evaluation.status}`}>
+                              <p className="summaryText"><b>{formatted.summary}</b></p>
+                              <p className="detailText">{formatted.detail}</p>
+                              {presentationPolicy.showEvidenceDetails && (
+                                <div className="evidenceBlock mt-1">
+                                  <p className="evidenceTitle">{targetElement.target_size_evaluation.reference}</p>
+                                  <div className="evidenceBadges">
+                                    <span className="badge ref-verified_reference">{locale === "en" ? "Verified Standard" : "已核验标准"}</span>
+                                    <span className="badge status">{locale === "en" ? "Strong Finding" : "强结论"}</span>
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         {/* Contrast Evaluation Card */}
                         {targetElement.contrast_evaluation && (

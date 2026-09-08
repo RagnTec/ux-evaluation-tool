@@ -464,19 +464,20 @@ export function calculateMultiAxisMargin(
   currentH: number,
   thresholdW: number,
   thresholdH: number,
-  unit: string
+  unit: string,
+  locale: "en" | "zh-CN" = "zh-CN"
 ): {
   axes: AxisComparison[];
   limitingAxis?: string;
   meets: boolean;
 } {
-  const wMargin = calculateScalarMinMargin(currentW, thresholdW, unit);
-  const hMargin = calculateScalarMinMargin(currentH, thresholdH, unit);
+  const wMargin = calculateScalarMinMargin(currentW, thresholdW, unit, locale);
+  const hMargin = calculateScalarMinMargin(currentH, thresholdH, unit, locale);
 
   const axes: AxisComparison[] = [
     {
       axis: "width",
-      label: "宽度",
+      label: locale === "en" ? "Width" : "宽度",
       current: currentW,
       threshold: thresholdW,
       unit,
@@ -487,7 +488,7 @@ export function calculateMultiAxisMargin(
     },
     {
       axis: "height",
-      label: "高度",
+      label: locale === "en" ? "Height" : "高度",
       current: currentH,
       threshold: thresholdH,
       unit,
@@ -501,15 +502,17 @@ export function calculateMultiAxisMargin(
   const meets = wMargin.meets && hMargin.meets;
 
   let limitingAxis: string | undefined = undefined;
+  const widthLabel = locale === "en" ? "Width" : "宽度";
+  const heightLabel = locale === "en" ? "Height" : "高度";
   if (!wMargin.meets && !hMargin.meets) {
-    limitingAxis = wMargin.margin < hMargin.margin ? "宽度" : "高度";
+    limitingAxis = wMargin.margin < hMargin.margin ? widthLabel : heightLabel;
   } else if (!wMargin.meets) {
-    limitingAxis = "宽度";
+    limitingAxis = widthLabel;
   } else if (!hMargin.meets) {
-    limitingAxis = "高度";
+    limitingAxis = heightLabel;
   } else {
     // Both meet: limiting axis is the tighter margin
-    limitingAxis = wMargin.margin <= hMargin.margin ? "宽度" : "高度";
+    limitingAxis = wMargin.margin <= hMargin.margin ? widthLabel : heightLabel;
   }
 
   return {
@@ -526,19 +529,22 @@ export function buildTargetSizeTrace(
   element: DesignElement,
   logicalMapping?: LogicalUnitMapping | null,
   wcagSpacing?: WcagSpacingEvaluation | null,
-  targetPlatform?: TargetPlatform
+  targetPlatform?: TargetPlatform,
+  locale: "en" | "zh-CN" = "zh-CN"
 ): RuleComparisonTrace {
   const isInteractive = element.interaction_type !== "none";
   if (!isInteractive) {
     return {
       checkId: "platform_target_size",
-      metricLabel: "触控目标尺寸",
-      currentValueDisplay: "不可交互",
+      metricLabel: locale === "en" ? "Touch Target Size" : "触控目标尺寸",
+      currentValueDisplay: locale === "en" ? "Non-interactive" : "不可交互",
       verdict: "not_applicable",
-      verdictLabel: TRACE_VERDICT_LABELS.not_applicable,
+      verdictLabel: getTraceVerdictLabel("not_applicable", locale),
       comparison: {
         kind: "measurement_only",
-        explanation: "当前元素未定义为可交互对象，不执行触控尺寸核验。"
+        explanation: locale === "en"
+          ? "Element is defined as non-interactive; touch target size verification does not apply."
+          : "当前元素未定义为可交互对象，不执行触控尺寸核验。"
       }
     };
   }
@@ -551,14 +557,16 @@ export function buildTargetSizeTrace(
   if (isMissing) {
     return {
       checkId: "platform_target_size",
-      metricLabel: "触控目标尺寸",
-      currentValueDisplay: "未配置",
+      metricLabel: locale === "en" ? "Touch Target Size" : "触控目标尺寸",
+      currentValueDisplay: locale === "en" ? "Unset" : "未配置",
       verdict: "needs_info",
-      verdictLabel: TRACE_VERDICT_LABELS.needs_info,
+      verdictLabel: getTraceVerdictLabel("needs_info", locale),
       comparison: {
         kind: "needs_info",
-        missingFields: ["实际触控范围"],
-        explanation: "尚未配置触控范围，需确认实际交互热区以进行尺寸比对。"
+        missingFields: locale === "en" ? ["Actual touch bounds"] : ["实际触控范围"],
+        explanation: locale === "en"
+          ? "Touch bounds not configured; confirm interactive bounds for target size comparison."
+          : "尚未配置触控范围，需确认实际交互热区以进行尺寸比对。"
       }
     };
   }
@@ -572,61 +580,73 @@ export function buildTargetSizeTrace(
     if (effectivePlatform === "ios") {
       return {
         checkId: "platform_target_size",
-        metricLabel: "触控目标尺寸 (Apple HIG)",
-        currentValueDisplay: "未换算",
+        metricLabel: locale === "en" ? "Touch Target Size (Apple HIG)" : "触控目标尺寸 (Apple HIG)",
+        currentValueDisplay: locale === "en" ? "Unscaled" : "未换算",
         unit: "pt",
         verdict: "needs_info",
-        verdictLabel: TRACE_VERDICT_LABELS.needs_info,
+        verdictLabel: getTraceVerdictLabel("needs_info", locale),
         ruleId: "apple_touch_target_44",
-        ruleTitle: "Apple HIG 触控目标 (≥ 44 × 44 pt)",
+        ruleTitle: locale === "en" ? "Apple HIG Touch Target (≥ 44 × 44 pt)" : "Apple HIG 触控目标 (≥ 44 × 44 pt)",
         ruleLayer: "L2_PLATFORM_GUIDELINE",
         evidenceStatus: "verified_reference",
         comparison: {
           kind: "needs_info",
-          missingFields: ["设计尺寸换算依据 (Design Basis)"],
-          explanation: "平台规则暂不可判断：缺少设计尺寸换算依据"
+          missingFields: locale === "en" ? ["Design Basis"] : ["设计尺寸换算依据 (Design Basis)"],
+          explanation: locale === "en"
+            ? "Platform rule cannot be evaluated: missing design basis"
+            : "平台规则暂不可判断：缺少设计尺寸换算依据"
         },
-        whyItMatters: "平台规范要求在逻辑点 (pt) 下满足触控热区基准，未提供设计尺寸换算时暂不执行正式判定。"
+        whyItMatters: locale === "en"
+          ? "Platform guideline requires meeting touch bounds in points (pt); formal evaluation requires design basis scaling."
+          : "平台规范要求在逻辑点 (pt) 下满足触控热区基准，未提供设计尺寸换算时暂不执行正式判定。"
       };
     }
     if (effectivePlatform === "android") {
       return {
         checkId: "platform_target_size",
-        metricLabel: "触控目标尺寸 (Android Material)",
-        currentValueDisplay: "未换算",
+        metricLabel: locale === "en" ? "Touch Target Size (Android Material)" : "触控目标尺寸 (Android Material)",
+        currentValueDisplay: locale === "en" ? "Unscaled" : "未换算",
         unit: "dp",
         verdict: "needs_info",
-        verdictLabel: TRACE_VERDICT_LABELS.needs_info,
+        verdictLabel: getTraceVerdictLabel("needs_info", locale),
         ruleId: "android_touch_target_48",
-        ruleTitle: "Android Material 触控目标 (≥ 48 × 48 dp)",
+        ruleTitle: locale === "en" ? "Android Material Touch Target (≥ 48 × 48 dp)" : "Android Material 触控目标 (≥ 48 × 48 dp)",
         ruleLayer: "L2_PLATFORM_GUIDELINE",
         evidenceStatus: "verified_reference",
         comparison: {
           kind: "needs_info",
-          missingFields: ["设计尺寸换算依据 (Design Basis)"],
-          explanation: "平台规则暂不可判断：缺少设计尺寸换算依据"
+          missingFields: locale === "en" ? ["Design Basis"] : ["设计尺寸换算依据 (Design Basis)"],
+          explanation: locale === "en"
+            ? "Platform rule cannot be evaluated: missing design basis"
+            : "平台规则暂不可判断：缺少设计尺寸换算依据"
         },
-        whyItMatters: "平台规范要求在密度无关像素 (dp) 下满足触控热区基准，未提供设计尺寸换算时暂不执行正式判定。"
+        whyItMatters: locale === "en"
+          ? "Platform guideline requires meeting touch bounds in density-independent pixels (dp); formal evaluation requires design basis scaling."
+          : "平台规范要求在密度无关像素 (dp) 下满足触控热区基准，未提供设计尺寸换算时暂不执行正式判定。"
       };
     }
     if (effectivePlatform === "web") {
       return {
         checkId: "platform_target_size",
-        metricLabel: "触控目标尺寸 (Web WCAG 2.5.8)",
-        currentValueDisplay: "未换算",
+        metricLabel: locale === "en" ? "Touch Target Size (Web WCAG 2.5.8)" : "触控目标尺寸 (Web WCAG 2.5.8)",
+        currentValueDisplay: locale === "en" ? "Unscaled" : "未换算",
         unit: "CSS px",
         verdict: "needs_info",
-        verdictLabel: TRACE_VERDICT_LABELS.needs_info,
+        verdictLabel: getTraceVerdictLabel("needs_info", locale),
         ruleId: "wcag_2_5_8",
-        ruleTitle: "WCAG 2.2 SC 2.5.8 目标尺寸 (最低 24×24 CSS px 或间距例外)",
+        ruleTitle: locale === "en" ? "WCAG 2.2 SC 2.5.8 Target Size (Minimum 24×24 CSS px or Spacing Exception)" : "WCAG 2.2 SC 2.5.8 目标尺寸 (最低 24×24 CSS px 或间距例外)",
         ruleLayer: "L1_HARD_CONSTRAINT",
         evidenceStatus: "verified_reference",
         comparison: {
           kind: "needs_info",
-          missingFields: ["设计尺寸换算依据 (Design Basis)"],
-          explanation: "平台规则暂不可判断：缺少设计尺寸换算依据"
+          missingFields: locale === "en" ? ["Design Basis"] : ["设计尺寸换算依据 (Design Basis)"],
+          explanation: locale === "en"
+            ? "Platform rule cannot be evaluated: missing design basis"
+            : "平台规则暂不可判断：缺少设计尺寸换算依据"
         },
-        whyItMatters: "保障运动障碍及手部精细控制困难用户在点击网页链接与控件时不易误触。"
+        whyItMatters: locale === "en"
+          ? "Ensures users with motor impairments or fine-motor challenges can activate web links and controls without unintended activation."
+          : "保障运动障碍及手部精细控制困难用户在点击网页链接与控件时不易误触。"
       };
     }
 
@@ -634,17 +654,23 @@ export function buildTargetSizeTrace(
     const h = targetEval?.measured_height || element.image_pixel_bounds.height;
     return {
       checkId: "platform_target_size",
-      metricLabel: "触控目标尺寸",
+      metricLabel: locale === "en" ? "Touch Target Size" : "触控目标尺寸",
       currentValueDisplay: `${w} × ${h} ${unit}`,
       unit,
       verdict: isProxy ? "estimated_meets" : "measurement_only",
-      verdictLabel: isProxy ? "估算参考" : "仅测量",
+      verdictLabel: isProxy
+        ? (locale === "en" ? "Estimated Reference" : "估算参考")
+        : (locale === "en" ? "Measurement Only" : "仅测量"),
       resultBasis: isProxy ? "inferred" : "exact",
       comparison: {
         kind: "measurement_only",
         explanation: isProxy
-          ? "基于可视范围估算，当前为自定义或未知平台，无预设平台尺寸阈值。"
-          : "已测量触控尺寸。当前为自定义单位模式，无预设平台尺寸阈值。"
+          ? (locale === "en"
+              ? "Estimated from visible bounds; custom or unknown platform with no preset platform size threshold."
+              : "基于可视范围估算，当前为自定义或未知平台，无预设平台尺寸阈值。")
+          : (locale === "en"
+              ? "Measured touch size; custom unit mode with no preset platform size threshold."
+              : "已测量触控尺寸。当前为自定义单位模式，无预设平台尺寸阈值。")
       }
     };
   }
@@ -656,17 +682,23 @@ export function buildTargetSizeTrace(
     const h = targetEval?.measured_height || element.image_pixel_bounds.height;
     return {
       checkId: "platform_target_size",
-      metricLabel: "触控目标尺寸",
+      metricLabel: locale === "en" ? "Touch Target Size" : "触控目标尺寸",
       currentValueDisplay: `${w} × ${h} ${unit}`,
       unit,
       verdict: isProxy ? "estimated_meets" : "measurement_only",
-      verdictLabel: isProxy ? "估算参考" : "仅测量",
+      verdictLabel: isProxy
+        ? (locale === "en" ? "Estimated Reference" : "估算参考")
+        : (locale === "en" ? "Measurement Only" : "仅测量"),
       resultBasis: isProxy ? "inferred" : "exact",
       comparison: {
         kind: "measurement_only",
         explanation: isProxy
-          ? "基于可视范围估算，当前为自定义或未知平台，无预设平台尺寸阈值。"
-          : "已测量触控尺寸。当前为自定义单位模式，无预设平台尺寸阈值。"
+          ? (locale === "en"
+              ? "Estimated from visible bounds; custom or unknown platform with no preset platform size threshold."
+              : "基于可视范围估算，当前为自定义或未知平台，无预设平台尺寸阈值。")
+          : (locale === "en"
+              ? "Measured touch size; custom unit mode with no preset platform size threshold."
+              : "已测量触控尺寸。当前为自定义单位模式，无预设平台尺寸阈值。")
       }
     };
   }
@@ -680,15 +712,19 @@ export function buildTargetSizeTrace(
 
     const conditions = [
       {
-        name: "目标尺寸条件",
-        factDescription: `当前触控尺寸 ${curW} × ${curH} CSS px (要求 ≥ 24 × 24 CSS px)`,
+        name: locale === "en" ? "Target Size Condition" : "目标尺寸条件",
+        factDescription: locale === "en"
+          ? `Current touch size ${curW} × ${curH} CSS px (Requires ≥ 24 × 24 CSS px)`
+          : `当前触控尺寸 ${curW} × ${curH} CSS px (要求 ≥ 24 × 24 CSS px)`,
         isMet: sizeMet
       },
       {
-        name: "间距例外条件",
+        name: locale === "en" ? "Spacing Exception Condition" : "间距例外条件",
         factDescription: spacingClear
-          ? "24px 间距圆范围内无相邻目标冲突"
-          : (wcagSpacing?.status === "spacing_circle_conflict" ? "24px 间距圆与相邻目标存在交叠" : "未检测到相邻目标"),
+          ? (locale === "en" ? "No adjacent target conflict within 24px spacing circle" : "24px 间距圆范围内无相邻目标冲突")
+          : (wcagSpacing?.status === "spacing_circle_conflict"
+              ? (locale === "en" ? "24px spacing circle overlaps with adjacent target" : "24px 间距圆与相邻目标存在交叠")
+              : (locale === "en" ? "No adjacent target detected" : "未检测到相邻目标")),
         isMet: spacingClear
       }
     ];
@@ -703,24 +739,32 @@ export function buildTargetSizeTrace(
 
     return {
       checkId: "platform_target_size",
-      metricLabel: "触控目标尺寸 (Web WCAG 2.5.8)",
+      metricLabel: locale === "en" ? "Touch Target Size (Web WCAG 2.5.8)" : "触控目标尺寸 (Web WCAG 2.5.8)",
       currentValueDisplay: `${curW} × ${curH} CSS px`,
       unit: "CSS px",
       verdict,
-      verdictLabel: TRACE_VERDICT_LABELS[verdict],
+      verdictLabel: getTraceVerdictLabel(verdict, locale),
       ruleId: "wcag_2_5_8",
-      ruleTitle: "WCAG 2.2 SC 2.5.8 目标尺寸 (最低 24×24 CSS px 或间距例外)",
+      ruleTitle: locale === "en" ? "WCAG 2.2 SC 2.5.8 Target Size (Minimum 24×24 CSS px or Spacing Exception)" : "WCAG 2.2 SC 2.5.8 目标尺寸 (最低 24×24 CSS px 或间距例外)",
       ruleLayer: "L1_HARD_CONSTRAINT",
       evidenceStatus: "verified_reference",
       claimStrength: "formal_constraint",
       resultBasis: isProxy ? "inferred" : "design_mapped",
       comparison: {
         kind: "conditional",
-        summary: meetsOverall ? "满足 WCAG 2.5.8 尺寸或间距例外条件" : "低于 24 CSS px 且未满足间距例外条件",
+        summary: meetsOverall
+          ? (locale === "en" ? "Meets WCAG 2.5.8 size or spacing exception condition" : "满足 WCAG 2.5.8 尺寸或间距例外条件")
+          : (locale === "en" ? "Below 24 CSS px and spacing exception not met" : "低于 24 CSS px 且未满足间距例外条件"),
         conditions
       },
-      whyItMatters: "保障运动障碍及手部精细控制困难用户在点击网页链接与控件时不易误触。",
-      recommendation: meetsOverall ? undefined : "建议将触控尺寸扩大至 24×24 CSS px，或增大与周边元素的距离。"
+      whyItMatters: locale === "en"
+        ? "Ensures users with motor impairments or fine-motor challenges can activate web links and controls without unintended activation."
+        : "保障运动障碍及手部精细控制困难用户在点击网页链接与控件时不易误触。",
+      recommendation: meetsOverall
+        ? undefined
+        : (locale === "en"
+            ? "Suggest enlarging touch target to 24×24 CSS px or increasing clearance to surrounding elements."
+            : "建议将触控尺寸扩大至 24×24 CSS px，或增大与周边元素的距离。")
     };
   }
 
@@ -728,7 +772,7 @@ export function buildTargetSizeTrace(
   const targetThreshold = platform === "android" ? 48 : 44;
   const curW = targetEval?.measured_width || 0;
   const curH = targetEval?.measured_height || 0;
-  const multiMargin = calculateMultiAxisMargin(curW, curH, targetThreshold, targetThreshold, unit);
+  const multiMargin = calculateMultiAxisMargin(curW, curH, targetThreshold, targetThreshold, unit, locale);
 
   let verdict: TraceVerdict = "meets";
   if (!multiMargin.meets) {
@@ -743,16 +787,16 @@ export function buildTargetSizeTrace(
   }
 
   const ruleTitle = platform === "android"
-    ? "Android Material 触控目标推荐 (≥ 48 × 48 dp)"
-    : "Apple HIG 触控区域推荐 (≥ 44 × 44 pt，最低 28 × 28 pt)";
+    ? (locale === "en" ? "Android Material Touch Target Recommendation (≥ 48 × 48 dp)" : "Android Material 触控目标推荐 (≥ 48 × 48 dp)")
+    : (locale === "en" ? "Apple HIG Touch Target Recommendation (≥ 44 × 44 pt, min 28 × 28 pt)" : "Apple HIG 触控区域推荐 (≥ 44 × 44 pt，最低 28 × 28 pt)");
 
   return {
     checkId: "platform_target_size",
-    metricLabel: `触控目标尺寸 (${platform.toUpperCase()})`,
+    metricLabel: locale === "en" ? `Touch Target Size (${platform.toUpperCase()})` : `触控目标尺寸 (${platform.toUpperCase()})`,
     currentValueDisplay: `${curW} × ${curH} ${unit}`,
     unit,
     verdict,
-    verdictLabel: TRACE_VERDICT_LABELS[verdict],
+    verdictLabel: getTraceVerdictLabel(verdict, locale),
     ruleId: platform === "android" ? "android_touch_target_48dp" : "apple_hig_touch_target_44pt",
     ruleTitle,
     ruleLayer: "L2_PLATFORM_GUIDELINE",
@@ -765,8 +809,14 @@ export function buildTargetSizeTrace(
       axes: multiMargin.axes,
       limitingAxis: multiMargin.limitingAxis
     },
-    whyItMatters: "触控目标需满足肢体操作与指尖按压精度要求，足够的触控热区可降低移动设备上的误触与漏触率。",
-    recommendation: multiMargin.meets ? undefined : `可通过扩展透明触控热区（Padding）达到平台 ${targetThreshold} ${unit} 推荐尺寸，无需放大视觉图标。`
+    whyItMatters: locale === "en"
+      ? "Touch targets must accommodate physical finger press accuracy; adequate touch targets reduce miss-taps and touch errors on mobile devices."
+      : "触控目标需满足肢体操作与指尖按压精度要求，足够的触控热区可降低移动设备上的误触与漏触率。",
+    recommendation: multiMargin.meets
+      ? undefined
+      : (locale === "en"
+          ? `Expand transparent touch padding to achieve platform recommended size of ${targetThreshold} ${unit}, without enlarging the visual icon.`
+          : `可通过扩展透明触控热区（Padding）达到平台 ${targetThreshold} ${unit} 推荐尺寸，无需放大视觉图标。`)
   };
 }
 
@@ -774,41 +824,47 @@ export function buildTargetSizeTrace(
  * Builds explainable comparison trace for Color Contrast (WCAG SC 1.4.3 / SC 1.4.11).
  */
 export function buildContrastTrace(
-  contrastEval?: ContrastEvaluation | null
+  contrastEval?: ContrastEvaluation | null,
+  locale: "en" | "zh-CN" = "zh-CN"
 ): RuleComparisonTrace {
   if (!contrastEval) {
     return {
       checkId: "contrast",
-      metricLabel: "色彩对比度",
-      currentValueDisplay: "待取色",
+      metricLabel: locale === "en" ? "Text Contrast" : "色彩对比度",
+      currentValueDisplay: locale === "en" ? "Color sampling required" : "待取色",
       verdict: "needs_info",
-      verdictLabel: TRACE_VERDICT_LABELS.needs_info,
+      verdictLabel: getTraceVerdictLabel("needs_info", locale),
       comparison: {
         kind: "needs_info",
-        missingFields: ["前景色与背景色"],
-        explanation: "请在右侧检查器中使用取色器提取文字前景色与背景色以计算对比度。"
+        missingFields: locale === "en" ? ["Foreground and background colors"] : ["前景色与背景色"],
+        explanation: locale === "en"
+          ? "Use the color picker in the right inspector to sample text foreground and background colors to calculate contrast."
+          : "请在右侧检查器中使用取色器提取文字前景色与背景色以计算对比度。"
       }
     };
   }
 
   const currentRatio = contrastEval.contrast_ratio;
   const threshold = contrastEval.threshold || (contrastEval.evaluation_type === "non_text" ? 3.0 : 4.5);
-  const marginResult = calculateScalarMinMargin(currentRatio, threshold, ":1");
+  const marginResult = calculateScalarMinMargin(currentRatio, threshold, ":1", locale);
   const isPassed = contrastEval.passed;
   const verdict: TraceVerdict = isPassed ? "meets" : "attention";
 
-  const ruleTitle = contrastEval.evaluation_type === "non_text"
-    ? `WCAG 2.2 SC 1.4.11 非文本对比度 (≥ ${threshold}:1)`
-    : `WCAG 2.2 SC 1.4.3 文本对比度 (≥ ${threshold}:1)`;
+  const isNonText = contrastEval.evaluation_type === "non_text";
+  const ruleTitle = isNonText
+    ? (locale === "en" ? `WCAG 2.2 SC 1.4.11 Non-text Contrast (≥ ${threshold}:1)` : `WCAG 2.2 SC 1.4.11 非文本对比度 (≥ ${threshold}:1)`)
+    : (locale === "en" ? `WCAG 2.2 SC 1.4.3 Contrast (Minimum) (≥ ${threshold}:1)` : `WCAG 2.2 SC 1.4.3 文本对比度 (≥ ${threshold}:1)`);
 
   return {
     checkId: "contrast",
-    metricLabel: contrastEval.evaluation_type === "non_text" ? "非文本对比度" : "文本色彩对比度",
+    metricLabel: isNonText
+      ? (locale === "en" ? "Non-text Contrast" : "非文本对比度")
+      : (locale === "en" ? "Text Contrast" : "文本色彩对比度"),
     currentValueDisplay: `${currentRatio}:1`,
     unit: ":1",
     verdict,
-    verdictLabel: TRACE_VERDICT_LABELS[verdict],
-    ruleId: contrastEval.evaluation_type === "non_text" ? "wcag_1_4_11" : "wcag_1_4_3",
+    verdictLabel: getTraceVerdictLabel(verdict, locale),
+    ruleId: isNonText ? "wcag_1_4_11" : "wcag_1_4_3",
     ruleTitle,
     ruleLayer: contrastEval.rule_layer || "L1_HARD_CONSTRAINT",
     evidenceStatus: (contrastEval.reference_status as any) || "verified_reference",
@@ -822,8 +878,14 @@ export function buildContrastTrace(
       marginFormatted: marginResult.marginFormatted,
       marginLabel: marginResult.marginLabel
     },
-    whyItMatters: "足够的明度对比度保障低视力用户、老年人以及在强光/户外环境下仍能清晰识读界面内容。",
-    recommendation: isPassed ? undefined : `当前对比度不足 ${threshold}:1，建议加深前景色或提亮背景色以满足无障碍标准。`
+    whyItMatters: locale === "en"
+      ? "Sufficient luminance contrast ensures content remains legible for users with low vision, older adults, and under bright sunlight or outdoor lighting conditions."
+      : "足够的明度对比度保障低视力用户、老年人以及在强光/户外环境下仍能清晰识读界面内容。",
+    recommendation: isPassed
+      ? undefined
+      : (locale === "en"
+          ? `Current contrast is below ${threshold}:1. Suggest darkening foreground or brightening background to meet accessibility standards.`
+          : `当前对比度不足 ${threshold}:1，建议加深前景色或提亮背景色以满足无障碍标准。`)
   };
 }
 
@@ -833,7 +895,8 @@ export function buildContrastTrace(
 export function buildTextSizeTrace(
   textSizeEval?: TextSizeEvaluation | null,
   logicalMapping?: LogicalUnitMapping | null,
-  targetPlatform?: TargetPlatform
+  targetPlatform?: TargetPlatform,
+  locale: "en" | "zh-CN" = "zh-CN"
 ): RuleComparisonTrace {
   const effectivePlatform = logicalMapping?.platform || targetPlatform;
 
@@ -841,28 +904,36 @@ export function buildTextSizeTrace(
     if (effectivePlatform && effectivePlatform !== "unknown" && !logicalMapping) {
       return {
         checkId: "typography",
-        metricLabel: "文字字号",
-        currentValueDisplay: "未换算",
+        metricLabel: locale === "en" ? "Font Size" : "文字字号",
+        currentValueDisplay: locale === "en" ? "Unscaled" : "未换算",
         verdict: "needs_info",
-        verdictLabel: TRACE_VERDICT_LABELS.needs_info,
+        verdictLabel: getTraceVerdictLabel("needs_info", locale),
         ruleId: effectivePlatform === "ios" ? "apple_text_size" : effectivePlatform === "android" ? "android_text_size" : undefined,
-        ruleTitle: effectivePlatform === "ios" ? "Apple HIG 正文字号参考 (≥ 17 pt)" : effectivePlatform === "android" ? "Android Material 正文字号参考 (≥ 16 sp)" : undefined,
+        ruleTitle: effectivePlatform === "ios"
+          ? (locale === "en" ? "Apple HIG Body Font Reference (≥ 17 pt)" : "Apple HIG 正文字号参考 (≥ 17 pt)")
+          : effectivePlatform === "android"
+          ? (locale === "en" ? "Android Material Body Font Reference (≥ 16 sp)" : "Android Material 正文字号参考 (≥ 16 sp)")
+          : undefined,
         comparison: {
           kind: "needs_info",
-          missingFields: ["设计尺寸换算依据 (Design Basis)"],
-          explanation: "平台规则暂不可判断：缺少设计尺寸换算依据"
+          missingFields: locale === "en" ? ["Design Basis"] : ["设计尺寸换算依据 (Design Basis)"],
+          explanation: locale === "en"
+            ? "Platform rule cannot be evaluated: missing design basis"
+            : "平台规则暂不可判断：缺少设计尺寸换算依据"
         }
       };
     }
     return {
       checkId: "typography",
-      metricLabel: "文字字号",
-      currentValueDisplay: "未设置",
+      metricLabel: locale === "en" ? "Font Size" : "文字字号",
+      currentValueDisplay: locale === "en" ? "Unset" : "未设置",
       verdict: "not_applicable",
-      verdictLabel: TRACE_VERDICT_LABELS.not_applicable,
+      verdictLabel: getTraceVerdictLabel("not_applicable", locale),
       comparison: {
         kind: "measurement_only",
-        explanation: "非文本元素或未启用字号评估。"
+        explanation: locale === "en"
+          ? "Non-text element or typography evaluation not enabled."
+          : "非文本元素或未启用字号评估。"
       }
     };
   }
@@ -879,19 +950,27 @@ export function buildTextSizeTrace(
     const missingBasis = !logicalMapping && effectivePlatform && effectivePlatform !== "unknown" && !isConfirmed;
     return {
       checkId: "typography",
-      metricLabel: "文字字号",
-      currentValueDisplay: "未确认",
+      metricLabel: locale === "en" ? "Font Size" : "文字字号",
+      currentValueDisplay: locale === "en" ? "Unconfirmed" : "未确认",
       unit,
       verdict: "needs_info",
-      verdictLabel: TRACE_VERDICT_LABELS.needs_info,
+      verdictLabel: getTraceVerdictLabel("needs_info", locale),
       ruleId: textSizeEval.rule_id || (effectivePlatform === "ios" ? "apple_text_size" : effectivePlatform === "android" ? "android_text_size" : undefined),
-      ruleTitle: textSizeEval.rule_id ? undefined : (effectivePlatform === "ios" ? "Apple HIG 正文字号参考 (≥ 17 pt)" : effectivePlatform === "android" ? "Android Material 正文字号参考 (≥ 16 sp)" : undefined),
+      ruleTitle: textSizeEval.rule_id
+        ? undefined
+        : (effectivePlatform === "ios"
+            ? (locale === "en" ? "Apple HIG Body Font Reference (≥ 17 pt)" : "Apple HIG 正文字号参考 (≥ 17 pt)")
+            : effectivePlatform === "android"
+            ? (locale === "en" ? "Android Material Body Font Reference (≥ 16 sp)" : "Android Material 正文字号参考 (≥ 16 sp)")
+            : undefined),
       comparison: {
         kind: "needs_info",
-        missingFields: missingBasis ? ["设计尺寸换算依据 (Design Basis)"] : ["真实源设计字号 (Source Font Size)"],
+        missingFields: missingBasis
+          ? (locale === "en" ? ["Design Basis"] : ["设计尺寸换算依据 (Design Basis)"])
+          : (locale === "en" ? ["Source Font Size"] : ["真实源设计字号 (Source Font Size)"]),
         explanation: missingBasis
-          ? "平台规则暂不可判断：缺少设计尺寸换算依据"
-          : "源设计字号未确认，请输入设计源中的真实字号。"
+          ? (locale === "en" ? "Platform rule cannot be evaluated: missing design basis" : "平台规则暂不可判断：缺少设计尺寸换算依据")
+          : (locale === "en" ? "Source font size not confirmed; enter true font size from design source." : "源设计字号未确认，请输入设计源中的真实字号。")
       }
     };
   }
@@ -903,17 +982,23 @@ export function buildTextSizeTrace(
   ) {
     return {
       checkId: "typography",
-      metricLabel: "文字字号",
-      currentValueDisplay: isConfirmed ? `${val} ${unit}` : `约 ${val} ${unit}`,
+      metricLabel: locale === "en" ? "Font Size" : "文字字号",
+      currentValueDisplay: isConfirmed
+        ? `${val} ${unit}`
+        : (locale === "en" ? `≈ ${val} ${unit}` : `约 ${val} ${unit}`),
       unit,
       verdict: "measurement_only",
-      verdictLabel: TRACE_VERDICT_LABELS.measurement_only,
+      verdictLabel: getTraceVerdictLabel("measurement_only", locale),
       resultBasis: isConfirmed ? "user_confirmed" : "inferred",
       comparison: {
         kind: "measurement_only",
-        explanation: textSizeEval.detail_text || (isConfirmed ? "当前文字角色无独立校验规则，仅记录字号测量值。" : "当前文字角色无独立校验规则，仅记录截图估算值。")
+        explanation: textSizeEval.detail_text || (isConfirmed
+          ? (locale === "en" ? "No independent validation rule for current text role; recording measured font size." : "当前文字角色无独立校验规则，仅记录字号测量值。")
+          : (locale === "en" ? "No independent validation rule for current text role; recording estimated font size." : "当前文字角色无独立校验规则，仅记录截图估算值。"))
       },
-      whyItMatters: "合适的字号与层级可保障阅读效率，防止小字号在移动设备或弱光环境下产生辨识困难。"
+      whyItMatters: locale === "en"
+        ? "Appropriate font size and typographic hierarchy ensure reading efficiency and prevent small text from causing legibility issues on mobile displays or in low-light environments."
+        : "合适的字号与层级可保障阅读效率，防止小字号在移动设备或弱光环境下产生辨识困难。"
     };
   }
 
@@ -922,7 +1007,7 @@ export function buildTextSizeTrace(
   const minVal = isIos ? 11 : (isAndroid ? 12 : 12);
   const recVal = isIos ? 17 : (isAndroid ? 12 : 16);
 
-  const evalTier = evaluateTieredLowerBound(val, minVal, recVal, unit, "字号", !isConfirmed);
+  const evalTier = evaluateTieredLowerBound(val, minVal, recVal, unit, locale === "en" ? "Font Size" : "字号", !isConfirmed);
 
   let verdict: TraceVerdict = "meets";
   if (evalTier.verdict === "below_threshold") {
@@ -934,27 +1019,35 @@ export function buildTextSizeTrace(
   }
 
   const thresholdDisplay = isIos
-    ? `≥ 17 ${unit} (推荐) / ≥ 11 ${unit} (最低)`
+    ? (locale === "en" ? `≥ 17 ${unit} (Recommended) / ≥ 11 ${unit} (Minimum)` : `≥ 17 ${unit} (推荐) / ≥ 11 ${unit} (最低)`)
     : `≥ ${recVal} ${unit}`;
 
   let marginLabel = "";
   if (evalTier.verdict === "below_recommended") {
-    marginLabel = `达到基本要求 (≥ ${minVal} ${unit})，距离推荐值还差 ${evalTier.gapToRecommended} ${unit}`;
+    marginLabel = locale === "en"
+      ? `Meets basic requirement (≥ ${minVal} ${unit}), deficit to recommended is ${evalTier.gapToRecommended} ${unit}`
+      : `达到基本要求 (≥ ${minVal} ${unit})，距离推荐值还差 ${evalTier.gapToRecommended} ${unit}`;
   } else if (evalTier.verdict === "below_threshold") {
-    marginLabel = `距离基本要求还差 ${evalTier.gapToMinimum} ${unit}`;
+    marginLabel = locale === "en"
+      ? `Deficit to basic requirement is ${evalTier.gapToMinimum} ${unit}`
+      : `距离基本要求还差 ${evalTier.gapToMinimum} ${unit}`;
   } else {
-    marginLabel = `达到推荐值 (≥ ${recVal} ${unit})`;
+    marginLabel = locale === "en"
+      ? `Meets recommended value (≥ ${recVal} ${unit})`
+      : `达到推荐值 (≥ ${recVal} ${unit})`;
   }
 
   return {
     checkId: "typography",
-    metricLabel: "文字字号",
-    currentValueDisplay: isConfirmed ? `${formatNumericValue(val, 1)} ${unit}` : `${formatNumericValue(val, 1)} ${unit}（估算）`,
+    metricLabel: locale === "en" ? "Font Size" : "文字字号",
+    currentValueDisplay: isConfirmed
+      ? `${formatNumericValue(val, 1)} ${unit}`
+      : (locale === "en" ? `${formatNumericValue(val, 1)} ${unit} (Estimated)` : `${formatNumericValue(val, 1)} ${unit}（估算）`),
     unit,
     verdict,
-    verdictLabel: TRACE_VERDICT_LABELS[verdict],
+    verdictLabel: getTraceVerdictLabel(verdict, locale),
     ruleId: textSizeEval.rule_id,
-    ruleTitle: textSizeEval.reference || `正文字号可读性参考 (${thresholdDisplay})`,
+    ruleTitle: textSizeEval.reference || (locale === "en" ? `Body Text Legibility Reference (${thresholdDisplay})` : `正文字号可读性参考 (${thresholdDisplay})`),
     ruleLayer: textSizeEval.rule_layer || "L2_PLATFORM_GUIDELINE",
     evidenceStatus: isConfirmed && (textSizeEval.reference_status === "verified_reference" || textSizeEval.reference_status === "verified")
       ? "verified_reference"
@@ -967,17 +1060,25 @@ export function buildTextSizeTrace(
       margin: -(evalTier.gapToRecommended || 0),
       marginFormatted: `-${evalTier.gapToRecommended || 0} ${unit}`,
       marginLabel,
-      explanation: isConfirmed ? evalTier.explanation : `${textSizeEval.summary_text} 基于截图估算，不代表已确认设计源字号。`
+      explanation: isConfirmed
+        ? (locale === "en"
+            ? `Current font size is ${val} ${unit}, ${verdict === "meets" ? "meets recommended value" : verdict === "below_recommended" ? "meets basic requirement but below recommended" : "below basic requirement"}.`
+            : evalTier.explanation)
+        : (locale === "en"
+            ? `${textSizeEval.summary_text} Estimated from screenshot; does not represent confirmed design source font size.`
+            : `${textSizeEval.summary_text} 基于截图估算，不代表已确认设计源字号。`)
     },
-    whyItMatters: "合适的字号与层级可保障阅读效率，防止小字号在移动设备或弱光环境下产生辨识困难。",
+    whyItMatters: locale === "en"
+      ? "Appropriate font size and typographic hierarchy ensure reading efficiency and prevent small text from causing legibility issues on mobile displays or in low-light environments."
+      : "合适的字号与层级可保障阅读效率，防止小字号在移动设备或弱光环境下产生辨识困难。",
     recommendation: (verdict === "attention" || verdict === "estimated_attention")
       ? (isConfirmed
-          ? `建议将字号提升至 ${recVal} ${unit} 以上，或增加字重以保证可读性。`
-          : `建议确认设计源字号，若实际字号偏小建议提升至 ${recVal} ${unit} 以上。`)
+          ? (locale === "en" ? `Suggest increasing font size above ${recVal} ${unit}, or increasing font weight to improve legibility.` : `建议将字号提升至 ${recVal} ${unit} 以上，或增加字重以保证可读性。`)
+          : (locale === "en" ? `Confirm design source font size; if actual font size is small, suggest increasing to at least ${recVal} ${unit}.` : `建议确认设计源字号，若实际字号偏小建议提升至 ${recVal} ${unit} 以上。`))
       : (verdict === "below_recommended" || verdict === "estimated_below_recommended")
       ? (isConfirmed
-          ? `当前字号已达到基本要求，建议提升至 ${recVal} ${unit} 推荐范围以获得更好的阅读体验。`
-          : `估算字号已达基本要求，建议在设计中采用 ${recVal} ${unit} 推荐字号。`)
+          ? (locale === "en" ? `Current font size meets basic requirement; suggest increasing to recommended ${recVal} ${unit} range for better reading experience.` : `当前字号已达到基本要求，建议提升至 ${recVal} ${unit} 推荐范围以获得更好的阅读体验。`)
+          : (locale === "en" ? `Estimated font size meets basic requirement; suggest using recommended ${recVal} ${unit} font size in design.` : `估算字号已达基本要求，建议在设计中采用 ${recVal} ${unit} 推荐字号。`))
       : undefined
   };
 }
@@ -1009,7 +1110,9 @@ export function buildSpacingTrace(
 
   const nearestLabel = nearestInfo.nearest_element_label
     ? getElementDisplayName({ label: nearestInfo.nearest_element_label }, undefined, locale)
-    : (locale === "en" ? "adjacent element" : "相邻元素");
+    : (nearestInfo.nearest_element_index !== undefined
+        ? getElementDisplayName(undefined, nearestInfo.nearest_element_index - 1, locale)
+        : (locale === "en" ? "adjacent element" : "相邻元素"));
 
   if (nearestInfo.overlap && nearestInfo.overlap.is_overlapping) {
     return {
@@ -1760,7 +1863,8 @@ export function sortAndPartitionRuleTraces(
   return { mainTraces, moreMeasurements };
 }
 
-export function formatRuleTrace(t: RuleComparisonTrace): FormattedRuleTrace {
+export function formatRuleTrace(t: RuleComparisonTrace, locale: "en" | "zh-CN" = "zh-CN"): FormattedRuleTrace {
+  const sep = locale === "en" ? "; " : "；";
   return {
     metricLabel: t.metricLabel,
     currentValueDisplay: t.currentValueDisplay,
@@ -1773,7 +1877,7 @@ export function formatRuleTrace(t: RuleComparisonTrace): FormattedRuleTrace {
       t.comparison.kind === "scalar_min" || t.comparison.kind === "scalar_max"
         ? t.comparison.marginLabel
         : t.comparison.kind === "multi_axis"
-        ? t.comparison.axes.map((a) => `${a.label}: ${a.marginLabel}`).join("；")
+        ? t.comparison.axes.map((a) => `${a.label}: ${a.marginLabel}`).join(sep)
         : undefined,
     explanation:
       t.comparison.kind === "measurement_only"

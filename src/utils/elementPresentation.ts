@@ -38,7 +38,8 @@ import {
   getInteractionTypeLabel,
   getTouchSourceProvenanceLabel,
   getTouchReviewStatusLabel,
-  getElementDisplayName
+  getElementDisplayName,
+  formatAssumptionText
 } from "./labels";
 import {
   getUnifiedResultExplanation,
@@ -327,7 +328,7 @@ export function buildElementPresentationModel(
 
     visualAngleViewingDistanceDisplay = locale === "en" ? `Based on ${visualAngle.viewing_distance_mm} mm viewing distance` : `基于 ${visualAngle.viewing_distance_mm} mm 观看距离`;
     visualAngleProvenance = isEstimated ? (locale === "en" ? "Estimated Visual Angle" : "估算视角") : (locale === "en" ? "Calculated Visual Angle" : "精确计算视角");
-    visualAngleAssumptions = visualAngle.assumptions;
+    visualAngleAssumptions = visualAngle.assumptions?.map((asm) => formatAssumptionText(asm, locale));
 
     if (element.element_type === "text") {
       visualAngleTextSemanticNote = locale === "en" ? "Visual angle is derived from visible bounding box; does not represent individual character height or font size." : "当前视觉角基于圈选文字区域的可视边界计算，不等同于字符高度、x-height 或源字号。";
@@ -376,7 +377,7 @@ export function buildElementPresentationModel(
       textVisualAngleDisplay = `${formatNumericValue(visualAngle.vertical_arcmin, 1)}′ (${formatNumericValue(visualAngle.vertical_deg, 2)}°)`;
     }
 
-    const relTypo = computeRelativeTypographyMetrics(element, imageHeight, allElements);
+    const relTypo = computeRelativeTypographyMetrics(element, imageHeight, allElements, locale);
     if (relTypo) {
       textVisualShareDisplay = relTypo.relativeShareFormatted;
       relativeTypographyDisplay = relTypo.relativeRatioDisplay;
@@ -558,12 +559,17 @@ export function buildElementPresentationModel(
 
   let nearestSpacingDisplay = locale === "en" ? "No adjacent touch targets" : "无相邻热区";
   if (nearestInfo) {
+    const targetName = nearestInfo.nearest_element_label
+      ? getElementDisplayName({ label: nearestInfo.nearest_element_label }, undefined, locale)
+      : (nearestInfo.nearest_element_index !== undefined
+          ? getElementDisplayName(undefined, nearestInfo.nearest_element_index - 1, locale)
+          : (locale === "en" ? "adjacent element" : "相邻元素"));
     if (nearestInfo.overlap?.is_overlapping) {
       nearestSpacingDisplay = `⚠️ ${locale === "en" ? "Touch Overlap" : "触控重叠"} (${nearestInfo.overlap.overlap_area} px²)`;
     } else if (nearestInfo.distance_logical !== undefined && nearestInfo.logical_unit) {
-      nearestSpacingDisplay = `${nearestInfo.distance_logical} ${nearestInfo.logical_unit} (${locale === "en" ? "to " : "至 "}${nearestInfo.nearest_element_label || (locale === "en" ? "adjacent element" : "相邻元素")})`;
+      nearestSpacingDisplay = `${nearestInfo.distance_logical} ${nearestInfo.logical_unit} (${locale === "en" ? "to " : "至 "}${targetName})`;
     } else {
-      nearestSpacingDisplay = `${nearestInfo.distance_px} px (${locale === "en" ? "to " : "至 "}${nearestInfo.nearest_element_label || (locale === "en" ? "adjacent element" : "相邻元素")})`;
+      nearestSpacingDisplay = `${nearestInfo.distance_px} px (${locale === "en" ? "to " : "至 "}${targetName})`;
     }
   }
 

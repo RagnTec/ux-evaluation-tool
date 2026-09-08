@@ -13,6 +13,7 @@ import type {
 import type {
   LogicalMappingQuality,
   LogicalUnit,
+  TargetSizeEvaluation,
   TargetSizeStatus
 } from "../types/designElement";
 import type { Locale } from "../i18n/types";
@@ -415,8 +416,8 @@ export function getTouchReviewStatusLabel(
 
 /**
  * Derives a locale-aware element display name.
- * If the element label is a default pattern (e.g. "元素 #1", "Element #1", "元素 1"),
- * it is rendered in the active locale. Custom user-given labels are returned verbatim.
+ * If the element has a non-empty user-authored label, it is returned verbatim without translation.
+ * If the label is undefined/empty, a localized fallback is derived dynamically.
  */
 export function getElementDisplayName(
   element?: { label?: string; element_id?: string | number } | null,
@@ -430,15 +431,106 @@ export function getElementDisplayName(
     return locale === "en" ? `Element #${fallbackNum}` : `元素 #${fallbackNum}`;
   }
 
-  // Check if rawLabel matches default auto-generated format (Chinese or English)
-  const defaultPattern = /^(?:元素|Element)\s*#?\s*(\d+)$/i;
-  const match = rawLabel.match(defaultPattern);
-  if (match) {
-    const num = match[1];
-    return locale === "en" ? `Element #${num}` : `元素 #${num}`;
+  return rawLabel;
+}
+
+/**
+ * Translates assumption statements between locales to prevent Chinese leakage in English UI.
+ */
+export function formatAssumptionText(assumption: string, locale: Locale = "zh-CN"): string {
+  if (locale === "en") {
+    if (assumption === "物理尺寸基于屏幕等比贴合或局部缩放估算") {
+      return "Physical dimensions estimated based on aspect-ratio fit or cropped screenshot scaling";
+    }
+    if (assumption === "假设截图覆盖全屏画布") {
+      return "Assuming screenshot covers full display canvas";
+    }
+    if (assumption === "基于当前局部截图计算相对面积占比") {
+      return "Calculated relative area ratio based on cropped screenshot";
+    }
+  } else {
+    if (assumption === "Physical dimensions estimated based on aspect-ratio fit or cropped screenshot scaling") {
+      return "物理尺寸基于屏幕等比贴合或局部缩放估算";
+    }
+    if (assumption === "Assuming screenshot covers full display canvas") {
+      return "假设截图覆盖全屏画布";
+    }
+    if (assumption === "Calculated relative area ratio based on cropped screenshot") {
+      return "基于当前局部截图计算相对面积占比";
+    }
+  }
+  return assumption;
+}
+
+/**
+ * Translates target size evaluation summary and detail texts according to active locale.
+ */
+export function formatTargetSizeEvaluation(
+  evalResult: TargetSizeEvaluation,
+  locale: Locale = "zh-CN"
+): { summary: string; detail: string } {
+  if (locale !== "en") {
+    return {
+      summary: evalResult.summary_text,
+      detail: evalResult.detail_text
+    };
   }
 
-  return rawLabel;
+  const isInferred = evalResult.result_basis === "inferred";
+  const inferredSuffix = isInferred ? " (Inferred)" : "";
+  const { unit, measured_width: w, measured_height: h, status } = evalResult;
+
+  if (unit === "css_px") {
+    if (status === "condition_met") {
+      return {
+        summary: `Meets SC 2.5.8 target size condition${inferredSuffix}`,
+        detail: `Touch target size is ${w} × ${h} CSS px, meeting the 24 × 24 CSS px size benchmark.`
+      };
+    } else {
+      return {
+        summary: `Below 24 CSS px size condition; requires spacing/exception verification for SC 2.5.8${inferredSuffix}`,
+        detail: `Touch target size is ${w} × ${h} CSS px (below 24 × 24 CSS px). Under SC 2.5.8, it may still comply if sufficient spacing (e.g. 24px diameter clear circle), inline link, or essential presentation exceptions apply.`
+      };
+    }
+  }
+
+  if (unit === "dp") {
+    if (status === "condition_met") {
+      return {
+        summary: `Within recommended range${inferredSuffix}`,
+        detail: `Control size is ${w} × ${h} dp, meeting the Android recommended 48 × 48 dp touch target size.`
+      };
+    } else {
+      return {
+        summary: `Below basic requirement${inferredSuffix}`,
+        detail: `Control size is ${w} × ${h} dp, below the Android recommended 48 × 48 dp touch target size (suggest expanding padding or touch bounds).`
+      };
+    }
+  }
+
+  if (unit === "pt") {
+    if (status === "meets_default") {
+      return {
+        summary: `Meets default recommended size${inferredSuffix}`,
+        detail: `Touch target size is ${w} × ${h} pt, meeting the Apple HIG default recommended 44 × 44 pt touch target size.`
+      };
+    } else if (status === "meets_minimum") {
+      return {
+        summary: `Meets minimum size but below default recommendation${inferredSuffix}`,
+        detail: `Touch target size is ${w} × ${h} pt, meeting the Apple HIG 28 × 28 pt minimum control size, but below the 44 × 44 pt default recommendation.`
+      };
+    } else {
+      return {
+        summary: `Below minimum control size${inferredSuffix}`,
+        detail: `Touch target size is ${w} × ${h} pt, below the Apple HIG 28 × 28 pt minimum control size requirement.`
+      };
+    }
+  }
+
+  return {
+    summary: getTargetSizeStatusLabel(status, locale) + inferredSuffix,
+    detail: evalResult.detail_text
+  };
 }
 
 /**

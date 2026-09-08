@@ -11,8 +11,10 @@ import {
   EVALUATION_CHECK_LABELS,
   EVALUATION_TIER_LABELS,
   EVALUATION_TIER_DESCRIPTIONS,
-  EVALUATION_METRIC_CAPABILITY_LABELS
+  EVALUATION_METRIC_CAPABILITY_LABELS,
+  getEvaluationTierLabel
 } from "../types/capability";
+import type { Locale } from "../i18n/types";
 import type {
   DesignElement,
   LogicalUnitMapping,
@@ -328,7 +330,8 @@ export function collectAvailableFacts(
  */
 export function resolveEvaluationCapability(
   checkId: EvaluationCheckId,
-  availableFacts: Set<AvailableFact>
+  availableFacts: Set<AvailableFact>,
+  locale: Locale = "zh-CN"
 ): ResolvedCapability {
   const def = CAPABILITY_DEFINITIONS[checkId];
   if (!def) {
@@ -340,7 +343,7 @@ export function resolveEvaluationCapability(
       nextTier: null,
       missingRequirementsForNextTier: [],
       missingFactIdsForNextTier: [],
-      statusLabel: "截图事实",
+      statusLabel: locale === "en" ? "Screenshot Fact" : "截图事实",
       statusLevel: "ready",
       tierDescription: EVALUATION_TIER_DESCRIPTIONS.screenshot_fact
     };
@@ -374,7 +377,7 @@ export function resolveEvaluationCapability(
     for (const reqFact of nextTierReq.requiredFacts) {
       if (!availableFacts.has(reqFact)) {
         missingFactIds.push(reqFact);
-        const readable = getReadableFactRequirement(reqFact, checkId, availableFacts);
+        const readable = getReadableFactRequirement(reqFact, checkId, availableFacts, locale);
         if (readable && !missingRequirements.includes(readable)) {
           missingRequirements.push(readable);
         }
@@ -382,25 +385,26 @@ export function resolveEvaluationCapability(
     }
   }
 
+  const tierLabel = getEvaluationTierLabel(highestTier, locale);
   let statusLevel: "ready" | "partial" | "missing" = "ready";
-  let statusLabel = EVALUATION_TIER_LABELS[highestTier];
+  let statusLabel = tierLabel;
 
   if (highestTier === "source_confirmed") {
     statusLevel = "ready";
-    statusLabel = `✓ ${EVALUATION_TIER_LABELS.source_confirmed}`;
+    statusLabel = `✓ ${tierLabel}`;
   } else if (highestTier === "design_mapped") {
     statusLevel = "ready";
-    statusLabel = `✓ ${EVALUATION_TIER_LABELS.design_mapped}`;
+    statusLabel = `✓ ${tierLabel}`;
   } else if (highestTier === "hardware_assumed") {
     statusLevel = "partial";
-    statusLabel = `◐ ${EVALUATION_TIER_LABELS.hardware_assumed}`;
+    statusLabel = `◐ ${tierLabel}`;
   } else {
     if (nextTier) {
       statusLevel = "partial";
-      statusLabel = `◐ ${EVALUATION_TIER_LABELS.screenshot_fact}`;
+      statusLabel = `◐ ${tierLabel}`;
     } else {
       statusLevel = "ready";
-      statusLabel = `✓ ${EVALUATION_TIER_LABELS.screenshot_fact}`;
+      statusLabel = `✓ ${tierLabel}`;
     }
   }
 
@@ -423,7 +427,8 @@ export function resolveEvaluationCapability(
  */
 export function resolveAllCapabilities(
   ctx: CapabilityContext,
-  element?: DesignElement | null
+  element?: DesignElement | null,
+  locale: Locale = "zh-CN"
 ): Record<EvaluationCheckId, ResolvedCapability> {
   const facts = collectAvailableFacts(ctx, element);
   const result: Partial<Record<EvaluationCheckId, ResolvedCapability>> = {};
@@ -438,7 +443,7 @@ export function resolveAllCapabilities(
   ];
 
   for (const checkId of allCheckIds) {
-    result[checkId] = resolveEvaluationCapability(checkId, facts);
+    result[checkId] = resolveEvaluationCapability(checkId, facts, locale);
   }
 
   return result as Record<EvaluationCheckId, ResolvedCapability>;
@@ -806,20 +811,58 @@ export function resolveAllMetricCapabilities(
   return results as Record<EvaluationMetricCapabilityId, MetricCapabilityResult>;
 }
 
-function getReadableFactRequirement(
+export function getReadableFactRequirement(
   fact: AvailableFact,
-  checkId: EvaluationCheckId,
-  availableFacts: Set<AvailableFact>
+  checkId?: EvaluationCheckId,
+  availableFacts?: Set<AvailableFact>,
+  locale: Locale = "zh-CN"
 ): string {
+  if (locale === "en") {
+    switch (fact) {
+      case "screen_diagonal":
+      case "screen_resolution":
+        if (availableFacts && !availableFacts.has("screen_diagonal") && !availableFacts.has("screen_resolution")) {
+          return "Screen size and resolution";
+        }
+        return fact === "screen_diagonal" ? "Screen size (diagonal)" : "Screen resolution";
+      case "hardware_aspect_matched":
+        if (availableFacts && availableFacts.has("screenshot_scope_cropped")) {
+          return "Original full screenshot width (preserve aspect ratio)";
+        }
+        return "Screen resolution matching screenshot aspect ratio (or enable aspect-fit estimate)";
+      case "logical_mapping":
+      case "logical_design_width":
+        return "Design size information (design width)";
+      case "both_colors_confirmed":
+        return "Confirm foreground and background colors";
+      case "single_color_provisional":
+        return "Sample at least one color";
+      case "text_single_line":
+        return "Confirm single-line text (for multi-line text, annotate individually or specify font size)";
+      case "confirmed_text_size":
+        return "Confirm source font size";
+      case "touch_bounds_confirmed":
+        return "Confirm touch target bounds";
+      case "target_platform_known":
+        return "Target platform (iOS / Android / Web)";
+      case "physical_mapping":
+        return "Physical screen calibration parameters";
+      case "viewing_distance":
+        return "Viewing distance";
+      default:
+        return "Provide relevant evaluation parameters";
+    }
+  }
+
   switch (fact) {
     case "screen_diagonal":
     case "screen_resolution":
-      if (!availableFacts.has("screen_diagonal") && !availableFacts.has("screen_resolution")) {
+      if (availableFacts && !availableFacts.has("screen_diagonal") && !availableFacts.has("screen_resolution")) {
         return "屏幕尺寸与分辨率";
       }
       return fact === "screen_diagonal" ? "屏幕尺寸（对角线）" : "屏幕分辨率";
     case "hardware_aspect_matched":
-      if (availableFacts.has("screenshot_scope_cropped")) {
+      if (availableFacts && availableFacts.has("screenshot_scope_cropped")) {
         return "原完整截图宽度（保持原像素比例）";
       }
       return "屏幕分辨率比例与截图匹配（或启用等比贴合粗略估算）";
