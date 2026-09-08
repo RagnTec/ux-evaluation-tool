@@ -576,8 +576,10 @@ export function getUnifiedResultExplanation(ctx: ExplanationContext): UnifiedRes
         });
         perspectives.push({
           type: "product",
-          label: "产品 / 体验影响",
-          content: "适中的目标尺寸有助于保障日常操作的流畅度和容错率。"
+          label: locale === "en" ? "Product / UX Impact" : "产品 / 体验影响",
+          content: locale === "en"
+            ? "Adequate target size helps ensure fluency and fault tolerance in everyday operations."
+            : "适中的目标尺寸有助于保障日常操作的流畅度和容错率。"
         });
       }
     } else {
@@ -1084,14 +1086,22 @@ export function getUnifiedResultExplanation(ctx: ExplanationContext): UnifiedRes
       if (layoutAssessed.finding === "accessibility_tradeoff") {
         perspectives.push({
           type: "design",
-          label: "适老化排版说明",
-          content: layoutAssessed.explanation || "针对适老化/低视力用户放大文字，单行字符承载偏低属于可读性优先的排版折衷。"
+          label: locale === "en" ? "Senior / Low-Vision Typography Note" : "适老化排版说明",
+          content: locale === "en"
+            ? (layoutAssessed.estimatedCharsPerLine
+              ? `Text enlarged for senior / low-vision users (estimated ~${layoutAssessed.estimatedCharsPerLine} chars/line). Reduced line capacity is an intentional readability tradeoff.`
+              : "Enlarging text for senior / low-vision users prioritizes readability over single-line character capacity.")
+            : (layoutAssessed.explanation || "针对适老化/低视力用户放大文字，单行字符承载偏低属于可读性优先的排版折衷。")
         });
       } else if (layoutAssessed.finding === "possible_excessive_enlargement" || (layoutAssessed.explanation && layoutAssessed.finding !== "normal")) {
         perspectives.push({
           type: "design",
-          label: "排版容量参考 (启发式)",
-          content: `${layoutAssessed.explanation} 建议评估是否需要适当平衡字号辨识度与单行信息承载量。`
+          label: locale === "en" ? "Typography Capacity Reference (Heuristic)" : "排版容量参考 (启发式)",
+          content: locale === "en"
+            ? (layoutAssessed.estimatedCharsPerLine
+              ? `Estimated single-line capacity ~${layoutAssessed.estimatedCharsPerLine} characters. Consider evaluating whether font size legibility needs to be balanced with single-line capacity.`
+              : "Consider evaluating whether font size legibility needs to be balanced with single-line capacity.")
+            : `${layoutAssessed.explanation} 建议评估是否需要适当平衡字号辨识度与单行信息承载量。`
         });
       }
     }
@@ -1101,8 +1111,10 @@ export function getUnifiedResultExplanation(ctx: ExplanationContext): UnifiedRes
   if (perspectives.length === 0) {
     perspectives.push({
       type: "design",
-      label: "设计检查",
-      content: "可进一步配置设计尺寸基准或补充前背景色采样，以获取更完整的平台规范与无障碍评估结果。"
+      label: locale === "en" ? "Design Review" : "设计检查",
+      content: locale === "en"
+        ? "Configure the design-size basis or provide foreground/background color samples for more complete platform-guideline and accessibility evaluation."
+        : "可进一步配置设计尺寸基准或补充前背景色采样，以获取更完整的平台规范与无障碍评估结果。"
     });
   }
 
